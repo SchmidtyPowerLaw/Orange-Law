@@ -57,9 +57,11 @@ function PrivacyPage() {
         browser. We will not sell a list of our visitors.
       </p>
       <p>
-        We may add privacy-respecting traffic measurement (page counts) so we
-        know whether the chart is used. That would record coarse visit data, not
-        the contents of your stack.
+        We measure traffic with Vercel Web Analytics so we know whether the
+        chart is used. It is cookieless: it records page path, referrer,
+        country, browser, and device class — not your name, and not the
+        contents of your stack. Vercel processes that data as our host. You
+        can block it with a content blocker.
       </p>
 
       <h2>Contact</h2>
