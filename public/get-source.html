@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orange Law source</title>
+    <style>
+      body { font: 16px/1.45 system-ui, sans-serif; background: #111; color: #eee; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+      a, button { color: #ffb020; }
+      button { background: #c45c12; color: #fff; border: 0; border-radius: 8px; height: 44px; padding: 0 16px; font-weight: 600; }
+      code { background: #222; padding: 2px 6px; border-radius: 4px; }
+      textarea { width: 100%; min-height: 5rem; background: #1a1a1a; color: #ddd; border: 1px solid #333; }
+    </style>
+  </head>
+  <body>
+    <h1>Orange Law source zip</h1>
+    <p>This chat preview blocks <code><a download></code>. Use the button, or copy the URL into a real browser tab.</p>
+    <p><button type="button" id="save">Save zip</button></p>
+    <p>Direct URL:</p>
+    <textarea id="url" readonly></textarea>
+    <script>
+      const url = new URL("/orange-law-source.zip", location.href).href;
+      document.getElementById("url").value = url;
+      document.getElementById("save").onclick = async () => {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const file = new File([blob], "orange-law-source.zip", { type: "application/zip" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: "Orange Law source" });
+          return;
+        }
+        const obj = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = obj;
+        a.download = "orange-law-source.zip";
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+    </script>
+  </body>
+</html>
