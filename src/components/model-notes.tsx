@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { BETA, R_SQUARED, SIGMA } from "@/lib/powerlaw";
-import { SourceZipButton } from "@/components/source-zip-button";
 import { GIOVANNI_X, PAPER_URL, SITE_EMAIL } from "@/lib/site";
 
 function CreditLink({
@@ -101,7 +100,6 @@ export function ModelNotes() {
         </Link>
         .
       </p>
-      <SourceZipButton />
     </section>
   );
 }
