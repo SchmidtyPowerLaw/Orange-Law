@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { colorAtZ, quantizeColor } from "@/lib/band-color";
 import { assetMeta, assetSeries, indexAssetToBitcoin, totalReturn, type AssetId } from "@/lib/compare";
 import { futurePricePath } from "@/lib/future-path";
-import { HISTORY_STILL_FADE_MS, HISTORY_STILL_SHRINK_MS, pathAppearMs, reelState, stillHeroMs } from "@/lib/history-reel";
+import { HISTORY_STILL_FADE_MS, HISTORY_STILL_SHRINK_MS, lerpRect, pathAppearMs, reelState, stillHeroMs, stillShrinkU } from "@/lib/history-reel";
 
 type TimeWindow = { tMin: number; tMax: number };
 
@@ -576,11 +576,11 @@ function heroStillRect(chartW: number, chartH: number, compact: boolean) {
     const height = Math.min(chartH * 0.34, width / 1.32, 128);
     return fitStill({ left, top, width, height }, chartW, chartH, 6);
   }
-  const left = 10;
-  const top = 8;
-  const width = Math.min(chartW * 0.4, 432);
-  const height = Math.min(chartH * 0.48, 258);
-  return fitStill({ left, top, width, height }, chartW, chartH, 8);
+  const left = 12;
+  const top = 10;
+  const width = Math.min(chartW * 0.55, 620);
+  const height = Math.min(chartH * 0.7, 400);
+  return fitStill({ left, top, width, height }, chartW, chartH, 10);
 }
 
 function HistoryStill({
@@ -1446,70 +1446,33 @@ export function PowerChart({
       nextFree = at + heroMs;
       if (elapsed < at) continue;
       const age = elapsed - at;
-      const isHero = !reduce && !reel.done && age < heroMs;
-      if (compactChart) {
-        const keepDocked = item.event.image?.includes("giovanni-power-law");
-        const goneAt = heroMs + HISTORY_STILL_SHRINK_MS + HISTORY_STILL_FADE_MS;
-        if (!keepDocked && age >= goneAt) continue;
-        const fadeAge = age - heroMs - HISTORY_STILL_SHRINK_MS;
-        const opacity =
-          keepDocked || fadeAge <= 0 ? 1 : Math.max(0, 1 - fadeAge / HISTORY_STILL_FADE_MS);
-        if (isHero) {
-          out.push({
-            key: item.event.iso,
-            src: item.event.image!,
-            alt: item.event.label,
-            hero: true,
-            opacity,
-            ...heroRect,
-          });
-          continue;
-        }
-        const dock = dockStill(item.box, box.w, box.h, size);
-        out.push({
-          key: item.event.iso,
-          src: item.event.image!,
-          alt: item.event.label,
-          hero: false,
-          left: dock.left,
-          top: dock.top,
-          width: size,
-          height: size,
-          opacity,
-        });
-        continue;
-      }
-      if (isHero) {
-        out.push({
-          key: item.event.iso,
-          src: item.event.image!,
-          alt: item.event.label,
-          hero: true,
-          opacity: 1,
-          ...heroRect,
-        });
-        continue;
-      }
+      // Desktop keeps every still after it shrinks. Mobile fades extras so the
+      // small chart stays readable; Giovanni's law still stays docked.
+      const keepDocked = !compactChart || Boolean(item.event.image?.includes("giovanni-power-law"));
+      const goneAt = heroMs + HISTORY_STILL_SHRINK_MS + HISTORY_STILL_FADE_MS;
+      if (!keepDocked && age >= goneAt) continue;
+      const fadeAge = age - heroMs - HISTORY_STILL_SHRINK_MS;
+      const opacity =
+        keepDocked || fadeAge <= 0 ? 1 : Math.max(0, 1 - fadeAge / HISTORY_STILL_FADE_MS);
       let dock = dockStill(item.box, box.w, box.h, size);
       for (let i = 0; i < 10; i++) {
         const next: ChipBox = { left: dock.left, top: dock.top, width: size, height: size };
-        if (!takenDocks.some((box) => boxesOverlap(box, next, 4))) break;
+        if (!takenDocks.some((taken) => boxesOverlap(taken, next, 4))) break;
         dock = {
           left: dock.left,
           top: Math.min(box.h - size - 6, dock.top + size + 4),
         };
       }
       takenDocks.push({ left: dock.left, top: dock.top, width: size, height: size });
+      const u = stillShrinkU(age, heroMs, reduce);
+      const rect = lerpRect(heroRect, { left: dock.left, top: dock.top, width: size, height: size }, u);
       out.push({
         key: item.event.iso,
         src: item.event.image!,
         alt: item.event.label,
-        hero: false,
-        left: dock.left,
-        top: dock.top,
-        width: size,
-        height: size,
-        opacity: 1,
+        hero: u < 1,
+        opacity,
+        ...rect,
       });
     }
     return out;

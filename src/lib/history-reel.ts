@@ -7,13 +7,38 @@ export const HISTORY_PATH_MS = 60_000;
 export const HISTORY_PATH_GAP_MS = 280;
 export const HISTORY_PATH_START_MS =
   HISTORY_FADE_MS + HISTORY_BAND_COUNT * HISTORY_BAND_MS + HISTORY_PATH_GAP_MS;
-export const HISTORY_HERO_MS = 2000;
+/** Large still hold, desktop and mobile. */
+export const HISTORY_HERO_MS = 3000;
 export const HISTORY_HERO_MS_MOBILE = 3000;
 export const HISTORY_STILL_SHRINK_MS = 720;
 export const HISTORY_STILL_FADE_MS = 2000;
 
-export function stillHeroMs(compact: boolean): number {
-  return compact ? HISTORY_HERO_MS_MOBILE : HISTORY_HERO_MS;
+export function stillHeroMs(_compact?: boolean): number {
+  return HISTORY_HERO_MS;
+}
+
+export type StillRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+/** 0 = full hero, 1 = docked thumbnail. Cubic ease-out while shrinking. */
+export function stillShrinkU(age: number, heroMs: number, reduce = false): number {
+  if (reduce || age >= heroMs + HISTORY_STILL_SHRINK_MS) return 1;
+  if (age <= heroMs) return 0;
+  const t = (age - heroMs) / HISTORY_STILL_SHRINK_MS;
+  return 1 - (1 - t) ** 3;
+}
+
+export function lerpRect(a: StillRect, b: StillRect, u: number): StillRect {
+  return {
+    left: a.left + (b.left - a.left) * u,
+    top: a.top + (b.top - a.top) * u,
+    width: a.width + (b.width - a.width) * u,
+    height: a.height + (b.height - a.height) * u,
+  };
 }
 
 export type ReelState = {
