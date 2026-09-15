@@ -216,6 +216,7 @@ export function plotPurchases(
   sheetCurrency: FiatCurrency,
   displayCurrency: Currency,
   liveXau = 1800,
+  liveFx = 0,
 ): PlotBuy[] {
   const byT = new Map<number, PlotBuy>();
   for (const row of purchases) {
@@ -226,7 +227,7 @@ export function plotPurchases(
     const payPx = sheetCurrency === "CAD" ? hist.cad : hist.usd;
     if (payPx <= 0) continue;
     const btc = row.amount / payPx;
-    const spot = priceOf(hist, displayCurrency, liveXau);
+    const spot = priceOf(hist, displayCurrency, liveXau, liveFx);
     const existing = byT.get(t);
     if (existing) {
       existing.amount += row.amount;

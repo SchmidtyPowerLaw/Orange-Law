@@ -195,22 +195,25 @@ function Home() {
   const buyCurrency = usePurchases((s) => s.currency);
   const showBuys = usePurchases((s) => s.show);
   const buys = useMemo(
-    () => plotPurchases(purchaseRows, rows, buyCurrency, currency, xau),
-    [purchaseRows, rows, buyCurrency, currency, xau],
+    () => plotPurchases(purchaseRows, rows, buyCurrency, currency, xau, lastFx(rows, quote)),
+    [purchaseRows, rows, buyCurrency, currency, xau, quote],
   );
-  const events = useMemo(() => plotEvents(rows, currency, xau), [rows, currency, xau]);
+  const events = useMemo(
+    () => plotEvents(rows, currency, xau, lastFx(rows, quote)),
+    [rows, currency, xau, quote],
+  );
   const futureEvents = useMemo(() => {
     if (!showFuture || !last) return [];
     return plotFutureEvents(last.t, residualZOf(last.usd, last.t, 1), lastScale(rows, quote, currency));
   }, [showFuture, last, rows, quote, currency]);
   const chartEvents = showFuture ? [...events, ...futureEvents] : events;
   const buyEvents = useMemo(
-    () => (showBuys ? plotBuyExtremes(purchaseRows, rows, currency, xau) : []),
-    [showBuys, purchaseRows, rows, currency, xau],
+    () => (showBuys ? plotBuyExtremes(purchaseRows, rows, currency, xau, lastFx(rows, quote)) : []),
+    [showBuys, purchaseRows, rows, currency, xau, quote],
   );
   const historyEvents = useMemo(
-    () => plotHistoryEvents(rows, currency, xau),
-    [rows, currency, xau],
+    () => plotHistoryEvents(rows, currency, xau, lastFx(rows, quote)),
+    [rows, currency, xau, quote],
   );
 
   const toggleHistory = () => {
@@ -356,6 +359,7 @@ function Home() {
           <RangeReturns
             currency={currency}
             liveXau={xau}
+            liveFx={lastFx(rows, quote)}
             selA={selA}
             selB={selB}
             minIso={rows[0] ? isoFromDay(rows[0].t) : "2010-07-17"}

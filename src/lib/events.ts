@@ -50,6 +50,7 @@ function toPlotEvent(
   currency: Currency,
   event: MarketEvent,
   liveXau: number,
+  liveFx = 0,
 ): PlotEvent | null {
   const last = history[history.length - 1];
   if (!last) return null;
@@ -61,14 +62,19 @@ function toPlotEvent(
   return {
     ...event,
     t,
-    spot: priceOf(row, currency, liveXau),
+    spot: priceOf(row, currency, liveXau, liveFx),
   };
 }
 
-export function plotEvents(history: HistoryRow[], currency: Currency, liveXau = 1800): PlotEvent[] {
+export function plotEvents(
+  history: HistoryRow[],
+  currency: Currency,
+  liveXau = 1800,
+  liveFx = 0,
+): PlotEvent[] {
   const out: PlotEvent[] = [];
   for (const event of MAJOR_EVENTS) {
-    const plotted = toPlotEvent(history, currency, event, liveXau);
+    const plotted = toPlotEvent(history, currency, event, liveXau, liveFx);
     if (plotted) out.push(plotted);
   }
   return out;
@@ -97,11 +103,12 @@ export function plotHistoryEvents(
   history: HistoryRow[],
   currency: Currency,
   liveXau = 1800,
+  liveFx = 0,
 ): PlotEvent[] {
   const firstT = history[0]?.t ?? 0;
   const out: PlotEvent[] = [];
   for (const event of HISTORY_LORE) {
-    const plotted = toPlotEvent(history, currency, event, liveXau);
+    const plotted = toPlotEvent(history, currency, event, liveXau, liveFx);
     if (plotted) out.push({ ...plotted, t: Math.max(plotted.t, firstT) });
   }
   return out;
@@ -137,6 +144,7 @@ export function plotBuyExtremes(
   history: HistoryRow[],
   currency: Currency,
   liveXau = 1800,
+  liveFx = 0,
 ): PlotEvent[] {
   const scored: ScoredBuy[] = [];
   for (const row of purchases) {
@@ -149,7 +157,7 @@ export function plotBuyExtremes(
       t,
       z: residualZ(hist.usd, t),
       amount: row.amount,
-      spot: priceOf(hist, currency, liveXau),
+      spot: priceOf(hist, currency, liveXau, liveFx),
     });
   }
   if (scored.length === 0) return [];

@@ -874,15 +874,15 @@ export function PowerChart({
       PAD.left +
       logLerp(tMin, tMax, Math.min(tMax, Math.max(tMin, t))) * (box.w - PAD.left - PAD.right);
     const visible = rows.filter((r) => r.t >= tMin && r.t <= tMax);
-    let minSpot = visible.reduce((m, r) => Math.min(m, priceOf(r, currency, liveXau)), Infinity);
-    let maxSpot = visible.reduce((m, r) => Math.max(m, priceOf(r, currency, liveXau)), 0);
+    let minSpot = visible.reduce((m, r) => Math.min(m, priceOf(r, currency, liveXau, liveFx)), Infinity);
+    let maxSpot = visible.reduce((m, r) => Math.max(m, priceOf(r, currency, liveXau, liveFx)), 0);
     const indexed = compareIds.map((id) => {
       const meta = assetMeta(id);
       const points = indexAssetToBitcoin(
         assetSeries(id),
         tMin,
         tMax,
-        (t) => priceAtDay(rows, t, currency, liveXau),
+        (t) => priceAtDay(rows, t, currency, liveXau, liveFx),
         (t) => fx(t),
       );
       for (const pt of points) {
@@ -928,8 +928,8 @@ export function PowerChart({
       lastX = x;
       pricePts.push({
         x,
-        y: yAt(priceOf(row, currency, liveXau)),
-        z: residualZOf(priceOf(row, currency, liveXau), row.t, fx(row.t)),
+        y: yAt(priceOf(row, currency, liveXau, liveFx)),
+        z: residualZOf(priceOf(row, currency, liveXau, liveFx), row.t, fx(row.t)),
       });
     }
 
@@ -994,7 +994,7 @@ export function PowerChart({
       futureSegs: (() => {
         if (!showFuture) return [] as Array<{ d: string; color: string }>;
         const last = rows[rows.length - 1];
-        const zNow = residualZOf(priceOf(last, currency, liveXau), tNow, fx(tNow));
+        const zNow = residualZOf(priceOf(last, currency, liveXau, liveFx), tNow, fx(tNow));
         const path = futurePricePath(tNow, zNow, tMax, compact ? 8 : 5);
         const pts: { x: number; y: number; z: number }[] = [];
         let prevX = -999;
@@ -1032,8 +1032,8 @@ export function PowerChart({
       }),
       last: {
         x: xAt(tNow),
-        y: yAt(priceOf(rows[rows.length - 1], currency, liveXau)),
-        color: colorAtZ(residualZOf(priceOf(rows[rows.length - 1], currency, liveXau), tNow, fx(tNow))),
+        y: yAt(priceOf(rows[rows.length - 1], currency, liveXau, liveFx)),
+        color: colorAtZ(residualZOf(priceOf(rows[rows.length - 1], currency, liveXau, liveFx), tNow, fx(tNow))),
       },
       priceTicks: niceLogTicks(pMin, pMax).map((v) => ({ v, y: yAt(v) })),
       years: thinAxisTicks(
@@ -1145,7 +1145,7 @@ export function PowerChart({
       }
       const row = rows[best];
       const point: SpanPoint = { t: row.t, usd: row.usd, cad: row.cad, xau: row.xau, projected: false };
-      return { point, x: geo.xAt(row.t), y: geo.yAt(priceOf(point, currency, liveXau)) };
+      return { point, x: geo.xAt(row.t), y: geo.yAt(priceOf(point, currency, liveXau, liveFx)) };
     }
 
     const tProj = Math.round(t);
@@ -1156,7 +1156,7 @@ export function PowerChart({
     const usd = quantilePriceUsd(tProj, band.z);
     const cad = usd * liveFx;
     const point: SpanPoint = { t: tProj, usd, cad, xau: liveXau, projected: true, band: band.id };
-    return { point, x: geo.xAt(tProj), y: geo.yAt(priceOf(point, currency, liveXau)) };
+    return { point, x: geo.xAt(tProj), y: geo.yAt(priceOf(point, currency, liveXau, liveFx)) };
   };
 
   const hitAsset = (clientX: number, clientY: number, svg: SVGSVGElement): AssetFocus | null => {
@@ -1371,7 +1371,7 @@ export function PowerChart({
     geo && aVisible && a
       ? placeChip(
           geo.xAt(a.t),
-          geo.yAt(priceOf(a, currency, liveXau)),
+          geo.yAt(priceOf(a, currency, liveXau, liveFx)),
           CHIP_W,
           CHIP_H_TAG,
           box.w,
@@ -1384,7 +1384,7 @@ export function PowerChart({
     geo && bVisible && b
       ? placeChip(
           geo.xAt(b.t),
-          geo.yAt(priceOf(b, currency, liveXau)),
+          geo.yAt(priceOf(b, currency, liveXau, liveFx)),
           CHIP_W,
           CHIP_H_TAG,
           box.w,
@@ -1551,8 +1551,8 @@ export function PowerChart({
       pt,
       assetRet: totalReturn(line.v0, pt.value),
       btcRet: totalReturn(
-        priceAtDay(rows, line.t0, currency, liveXau),
-        priceAtDay(rows, pt.t, currency, liveXau),
+        priceAtDay(rows, line.t0, currency, liveXau, liveFx),
+        priceAtDay(rows, pt.t, currency, liveXau, liveFx),
       ),
     };
   })();
@@ -1891,10 +1891,10 @@ export function PowerChart({
           ) : null}
 
           {a && a.t >= geo.tMin && a.t <= geo.tMax ? (
-            <SelMark geo={geo} point={a} currency={currency} liveXau={liveXau} />
+            <SelMark geo={geo} point={a} currency={currency} liveXau={liveXau} liveFx={liveFx} />
           ) : null}
           {b && b.t >= geo.tMin && b.t <= geo.tMax ? (
-            <SelMark geo={geo} point={b} currency={currency} liveXau={liveXau} />
+            <SelMark geo={geo} point={b} currency={currency} liveXau={liveXau} liveFx={liveFx} />
           ) : null}
 
           {hover ? (
@@ -1992,7 +1992,7 @@ export function PowerChart({
           box={aChip}
           tag="A"
           date={formatDay(a.t)}
-          price={formatPrice(priceOf(a, currency, liveXau), currency)}
+          price={formatPrice(priceOf(a, currency, liveXau, liveFx), currency)}
           note={bandNote(a)}
           projected={a.projected}
         />
@@ -2002,7 +2002,7 @@ export function PowerChart({
           box={bChip}
           tag="B"
           date={formatDay(b.t)}
-          price={formatPrice(priceOf(b, currency, liveXau), currency)}
+          price={formatPrice(priceOf(b, currency, liveXau, liveFx), currency)}
           note={bandNote(b)}
           projected={b.projected}
         />
@@ -2046,14 +2046,14 @@ export function PowerChart({
         <PriceChip
           box={hoverChip}
           date={formatDay(hover.point.t)}
-          price={formatPrice(priceOf(hover.point, currency, liveXau), currency)}
+          price={formatPrice(priceOf(hover.point, currency, liveXau, liveFx), currency)}
           note={bandNote(hover.point)}
           projected={hover.point.projected}
         />
       ) : null}
       <p className="sr-only" aria-live="polite">
         {hover
-          ? `${formatDay(hover.point.t)} ${formatPrice(priceOf(hover.point, currency, liveXau), currency)}`
+          ? `${formatDay(hover.point.t)} ${formatPrice(priceOf(hover.point, currency, liveXau, liveFx), currency)}`
           : ""}
       </p>
     </div>
@@ -2066,6 +2066,7 @@ function SelMark({
   point,
   currency,
   liveXau,
+  liveFx,
 }: {
   geo: {
     xAt: (t: number) => number;
@@ -2074,9 +2075,10 @@ function SelMark({
   point: SpanPoint;
   currency: Currency;
   liveXau: number;
+  liveFx: number;
 }) {
   const x = geo.xAt(point.t);
-  const y = geo.yAt(priceOf(point, currency, liveXau));
+  const y = geo.yAt(priceOf(point, currency, liveXau, liveFx));
   const fill = point.projected ? "var(--color-projection)" : "var(--color-foreground)";
   return (
     <g>

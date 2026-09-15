@@ -77,8 +77,11 @@ export type LiveQuote = {
   prevXau: number;
 };
 
-export function priceOf(row: HistoryRow, currency: Currency, liveXau?: number): number {
-  if (currency === "CAD") return row.cad;
+export function priceOf(row: HistoryRow, currency: Currency, liveXau?: number, liveFx?: number): number {
+  if (currency === "CAD") {
+    if (liveFx && liveFx > 0 && row.usd > 0) return row.usd * liveFx;
+    return row.cad;
+  }
   if (currency === "XAU") {
     const gold = liveXau && liveXau > 0 ? liveXau : row.xau;
     return gold > 0 ? row.usd / gold : 0;
@@ -91,18 +94,19 @@ export function priceAtDay(
   t: number,
   currency: Currency,
   liveXau?: number,
+  liveFx?: number,
 ): number {
   if (rows.length === 0) return 0;
-  if (t <= rows[0].t) return priceOf(rows[0], currency, liveXau);
+  if (t <= rows[0].t) return priceOf(rows[0], currency, liveXau, liveFx);
   let lo = 0;
   let hi = rows.length - 1;
-  if (t >= rows[hi].t) return priceOf(rows[hi], currency, liveXau);
+  if (t >= rows[hi].t) return priceOf(rows[hi], currency, liveXau, liveFx);
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1;
     if (rows[mid].t <= t) lo = mid;
     else hi = mid - 1;
   }
-  return priceOf(rows[lo], currency, liveXau);
+  return priceOf(rows[lo], currency, liveXau, liveFx);
 }
 
 export function previousClose(rows: HistoryRow[]): HistoryRow | null {
@@ -221,15 +225,12 @@ export function scaleAt(
   liveXau: number,
 ): number {
   if (currency === "USD") return 1;
-  // Gold is a trending unit. Express the USD power law — path and quantile
-  // bands — at the *latest* gold price so the scale-invariant slope is
-  // preserved and cycle tops stay on +2σ. Daily BTC/gold % still uses
-  // contemporaneous ounces via priceOf() without a live override.
+  // CAD and gold both trend versus the dollar. Express the USD power law —
+  // path and quantile bands — at the *latest* FX / gold print so the
+  // scale-invariant slope is preserved and cycle tops stay on +2σ.
+  // Native CAD / ounces still feed day-over-day % without this override.
   if (currency === "XAU") return liveXau > 0 ? 1 / liveXau : 0;
-  const last = rows[rows.length - 1];
-  if (!last || t >= last.t) return liveFx > 0 ? liveFx : 1;
-  const row = rowAtT(rows, t);
-  return row ? fxOfRow(row) : liveFx;
+  return liveFx > 0 ? liveFx : 1;
 }
 
 export function rowAtT(rows: HistoryRow[], t: number): HistoryRow | null {

@@ -54,11 +54,11 @@ export function ModelNotes() {
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
         Fit on daily closes from 17 July 2010 (day 560 after Genesis) through
         February 2026. Floor is the −2σ quantile; a year below −3σ is the
-        published falsification test. CAD uses daily USD/CAD (FRED DEXCAUS)
-        on historical prints and the live FX rate on forwards. GOLD is the USD
-        power law expressed in troy ounces at the latest gold price, so the
-        path and quantile bands stay aligned (cycle tops on +2σ) and the
-        scale-invariant slope does not bend. Compare overlays use Yahoo
+        published falsification test. CAD and GOLD are the USD power law
+        expressed at the latest FX / gold print, so the path and quantile
+        bands stay aligned (cycle tops on +2σ) and the scale-invariant slope
+        does not bend. Native CAD and gold still feed the live day-over-day
+        change. Compare overlays use Yahoo
         Finance adjusted closes (S&P 500 total return, XIC.TO for the
         TSX, CNQ.TO, NVDA, AAPL, COST) converted into the selected unit the
         same way bitcoin is, then indexed to bitcoin's price at the left

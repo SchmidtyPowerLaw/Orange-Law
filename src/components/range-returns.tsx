@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   currency: Currency;
   liveXau?: number;
+  liveFx?: number;
   selA: SpanPoint | null;
   selB: SpanPoint | null;
   minIso: string;
@@ -44,6 +45,7 @@ function bandLabel(point: SpanPoint): string | null {
 export function RangeReturns({
   currency,
   liveXau,
+  liveFx,
   selA,
   selB,
   minIso,
@@ -58,8 +60,8 @@ export function RangeReturns({
   const startIso = first ? isoFromDay(first.t) : "";
   const endIso = second ? isoFromDay(second.t) : "";
 
-  const p1 = first ? priceOf(first, currency, liveXau) : 0;
-  const p2 = second ? priceOf(second, currency, liveXau) : 0;
+  const p1 = first ? priceOf(first, currency, liveXau, liveFx) : 0;
+  const p2 = second ? priceOf(second, currency, liveXau, liveFx) : 0;
   const days = first && second ? second.t - first.t : 0;
   const total = first && second ? totalReturn(p1, p2) : 0;
   const cagr = first && second && days > 0 ? annualizedReturn(p1, p2, days) : null;
