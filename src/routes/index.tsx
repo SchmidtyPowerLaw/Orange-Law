@@ -314,34 +314,14 @@ function Home() {
               Power Law
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <Segmented<Currency>
-              ariaLabel="Display currency"
-              value={currency}
-              onChange={setCurrency}
-              size="sm"
-              wrap={false}
-              options={DISPLAY_CURRENCY_OPTIONS}
-            />
-            <div className="flex flex-col gap-1">
-              <button
-                type="button"
-                onClick={() => void exportGraph()}
-                disabled={Boolean(exporting)}
-                className="h-7 shrink-0 rounded-md border border-sand/30 bg-raised px-2 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-sand transition-colors hover:border-primary hover:text-primary disabled:opacity-60 sm:h-8 sm:px-2.5 sm:text-[10px]"
-              >
-                {exporting === "jpeg" ? "Exporting…" : "Export Graph JPEG"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void exportExcel()}
-                disabled={Boolean(exporting)}
-                className="h-7 shrink-0 rounded-md border border-sand/30 bg-raised px-2 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-floor transition-colors hover:border-floor hover:text-floor disabled:opacity-60 sm:h-8 sm:px-2.5 sm:text-[10px]"
-              >
-                {exporting === "xlsx" ? "Exporting…" : "Export Excel Data"}
-              </button>
-            </div>
-          </div>
+          <Segmented<Currency>
+            ariaLabel="Display currency"
+            value={currency}
+            onChange={setCurrency}
+            size="sm"
+            wrap={false}
+            options={DISPLAY_CURRENCY_OPTIONS}
+          />
         </div>
       </header>
 
@@ -360,7 +340,8 @@ function Home() {
         />
 
         <section className="select-none rounded-xl bg-card p-3 shadow-[var(--shadow-border)] md:p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
+          <div className="mb-3 space-y-3 px-1">
+            <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-display text-xl md:text-2xl">
                 <span>Scale-invariant path</span>
@@ -375,6 +356,25 @@ function Home() {
               <p className="text-xs text-muted-foreground">
                 Scroll or pinch to zoom. Drag to pan. Double-tap clears A–B.
               </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-0.5 pt-1">
+              <button
+                type="button"
+                onClick={() => void exportGraph()}
+                disabled={Boolean(exporting)}
+                className="font-mono text-[10px] italic leading-tight text-sand/70 underline decoration-sand/25 underline-offset-2 transition-colors hover:text-primary hover:decoration-primary disabled:opacity-50 sm:text-[11px]"
+              >
+                {exporting === "jpeg" ? "exporting…" : "export graph JPEG"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportExcel()}
+                disabled={Boolean(exporting)}
+                className="font-mono text-[10px] italic leading-tight text-floor/80 underline decoration-floor/30 underline-offset-2 transition-colors hover:text-floor hover:decoration-floor disabled:opacity-50 sm:text-[11px]"
+              >
+                {exporting === "xlsx" ? "exporting…" : "export Excel data"}
+              </button>
+            </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Segmented<ChartRange>
