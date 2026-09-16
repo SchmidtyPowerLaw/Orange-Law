@@ -9,7 +9,7 @@ import {
   racePath,
 } from "@/lib/trillion-race";
 
-const PAD = { top: 28, right: 22, bottom: 36, left: 52 };
+const PAD = { top: 56, right: 22, bottom: 36, left: 52 };
 
 function logLerp(a: number, b: number, x: number) {
   return (Math.log10(x) - Math.log10(a)) / (Math.log10(b) - Math.log10(a));
@@ -45,7 +45,7 @@ export function TrillionRace() {
   }, []);
 
   const geo = useMemo(() => {
-    const pad = compact ? { top: 24, right: 14, bottom: 34, left: 44 } : PAD;
+    const pad = compact ? { top: 50, right: 14, bottom: 34, left: 44 } : PAD;
     const xAt = (t: number) => pad.left + linLerp(0, RACE_X_MAX, t) * (box.w - pad.left - pad.right);
     const yAt = (m: number) =>
       pad.top + (1 - logLerp(RACE_Y_MIN, RACE_Y_MAX, Math.min(RACE_Y_MAX, Math.max(RACE_Y_MIN, m)))) * (box.h - pad.top - pad.bottom);
@@ -84,7 +84,7 @@ export function TrillionRace() {
     const gap = compact ? 24 : 28;
     const minX = geo.pad.left + 8;
     const maxX = box.w - geo.pad.right - 4;
-    const minTy = geo.pad.top + (compact ? 12 : 14);
+    const minTy = compact ? 16 : 18;
     const baseTy = yFinish - (compact ? 18 : 22);
     const hits = (x: number, ty: number, w: number, h: number) =>
       placed.some((p) => x - w < p.x + 6 && x + 6 > p.x - p.w && ty < p.ty + p.h && ty + h > p.ty);
@@ -118,6 +118,8 @@ export function TrillionRace() {
     }
     return placed;
   }, [geo, compact, box.w, box.h]);
+
+  const kickerY = Math.max(11, (labels.reduce((m, l) => Math.min(m, l.ty), 48) - 11));
 
   const hitHorse = (clientX: number, clientY: number, svg: SVGSVGElement) => {
     const rect = svg.getBoundingClientRect();
@@ -218,7 +220,7 @@ export function TrillionRace() {
               </text>
             </g>
           ))}
-          <text x={geo.pad.left} y={14} className="chart-kicker">
+          <text x={geo.pad.left} y={kickerY} className="chart-kicker">
             USD market cap (log)
           </text>
           <text x={box.w / 2} y={box.h - 2} textAnchor="middle" className="chart-kicker">
