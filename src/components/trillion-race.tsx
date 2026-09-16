@@ -28,9 +28,12 @@ function yTicks(): number[] {
 
 export function TrillionRace() {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const tapRef = useRef<{ x: number; y: number } | null>(null);
   const [box, setBox] = useState({ w: 800, h: 540 });
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const compact = box.w < 640;
+  const activeId = focusId ?? hoverId;
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -122,13 +125,13 @@ export function TrillionRace() {
 
   const kickerY = Math.max(11, (labels.reduce((m, l) => Math.min(m, l.ty), 48) - 11));
 
-  const hitHorse = (clientX: number, clientY: number, svg: SVGSVGElement) => {
+  const hitHorse = (clientX: number, clientY: number, svg: SVGSVGElement, maxDist = 18) => {
     const rect = svg.getBoundingClientRect();
     if (rect.width < 1) return null;
     const x = ((clientX - rect.left) / rect.width) * box.w;
     const y = ((clientY - rect.top) / rect.height) * box.h;
     let best: string | null = null;
-    let bestD = 18;
+    let bestD = maxDist;
     for (const line of geo.lines) {
       const t = (x - geo.pad.left) / Math.max(1, box.w - geo.pad.left - geo.pad.right);
       const years = t * RACE_X_MAX;
@@ -148,6 +151,10 @@ export function TrillionRace() {
       }
     }
     return best;
+  };
+
+  const toggleFocus = (id: string) => {
+    setFocusId((cur) => (cur === id ? null : id));
   };
 
   return (
@@ -175,11 +182,31 @@ export function TrillionRace() {
           className="block cursor-pointer touch-manipulation"
           role="img"
           aria-label="Years from founding to a one trillion dollar market cap"
+          onPointerDown={(ev) => {
+            tapRef.current = { x: ev.clientX, y: ev.clientY };
+          }}
           onPointerMove={(ev) => {
             if (ev.pointerType !== "mouse") return;
             setHoverId(hitHorse(ev.clientX, ev.clientY, ev.currentTarget));
           }}
-          onPointerLeave={() => setHoverId(null)}
+          onPointerUp={(ev) => {
+            const start = tapRef.current;
+            tapRef.current = null;
+            if (!start) return;
+            if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 14) return;
+            const id = hitHorse(ev.clientX, ev.clientY, ev.currentTarget, 32);
+            setFocusId((cur) => {
+              if (!id) return null;
+              return cur === id ? null : id;
+            });
+          }}
+          onPointerCancel={() => {
+            tapRef.current = null;
+          }}
+          onPointerLeave={() => {
+            tapRef.current = null;
+            setHoverId(null);
+          }}
         >
           <defs>
             <filter id="raceBtcGlow" x="-20%" y="-20%" width="140%" height="140%">
@@ -248,8 +275,8 @@ export function TrillionRace() {
 
           {geo.lines.map((line) => {
             const btc = line.horse.id === "btc";
-            const dim = hoverId != null && hoverId !== line.horse.id;
-            const hot = hoverId === line.horse.id;
+            const dim = activeId != null && activeId !== line.horse.id;
+            const hot = activeId === line.horse.id;
             return (
               <path
                 key={line.horse.id}
@@ -269,7 +296,7 @@ export function TrillionRace() {
             <g
               key={`lbl-${item.id}`}
               pointerEvents="none"
-              opacity={hoverId && hoverId !== item.id ? 0.22 : 1}
+              opacity={activeId && activeId !== item.id ? 0.22 : 1}
             >
               {Math.hypot(item.x - item.fx, item.ty - item.fy) > 4 ? (
                 <line
@@ -309,12 +336,22 @@ export function TrillionRace() {
         {RACE_HORSES.map((horse) => (
           <li
             key={horse.id}
+            role="button"
+            tabIndex={0}
+            aria-pressed={activeId === horse.id}
             className={cn(
-              "flex min-w-0 items-center gap-1.5 rounded-lg bg-raised px-2.5 py-2 sm:gap-2 sm:px-3",
-              hoverId === horse.id && "shadow-[var(--shadow-border-hover)]",
+              "flex min-w-0 cursor-pointer touch-manipulation items-center gap-1.5 rounded-lg bg-raised px-2.5 py-2 select-none sm:gap-2 sm:px-3",
+              activeId === horse.id && "shadow-[var(--shadow-border-hover)]",
             )}
             onPointerEnter={() => setHoverId(horse.id)}
             onPointerLeave={() => setHoverId(null)}
+            onClick={() => toggleFocus(horse.id)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                toggleFocus(horse.id);
+              }
+            }}
           >
             <span className="min-w-0 truncate text-[13px] font-medium sm:text-sm" style={{ color: horse.color }}>
               {horse.name}
@@ -325,7 +362,7 @@ export function TrillionRace() {
                 alt=""
                 width={24}
                 height={24}
-                className="h-5 w-5 shrink-0 object-contain sm:h-6 sm:w-6"
+                className="pointer-events-none h-5 w-5 shrink-0 object-contain sm:h-6 sm:w-6"
               />
             ) : null}
             <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground sm:text-xs">
