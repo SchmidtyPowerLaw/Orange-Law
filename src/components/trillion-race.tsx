@@ -8,6 +8,7 @@ import {
   moneyTick,
   racePath,
 } from "@/lib/trillion-race";
+import { cn } from "@/lib/utils";
 
 const PAD = { top: 56, right: 22, bottom: 36, left: 52 };
 
@@ -308,7 +309,10 @@ export function TrillionRace() {
         {RACE_HORSES.map((horse) => (
           <li
             key={horse.id}
-            className="flex min-w-0 items-center gap-1.5 rounded-lg bg-raised px-2.5 py-2 sm:gap-2 sm:px-3"
+            className={cn(
+              "flex min-w-0 items-center gap-1.5 rounded-lg bg-raised px-2.5 py-2 sm:gap-2 sm:px-3",
+              hoverId === horse.id && "shadow-[var(--shadow-border-hover)]",
+            )}
             onPointerEnter={() => setHoverId(horse.id)}
             onPointerLeave={() => setHoverId(null)}
           >
