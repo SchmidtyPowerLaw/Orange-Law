@@ -30,7 +30,7 @@ function yTicks(max: number): number[] {
 export function CheapBitcoin({ usd }: { usd: number }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 800, h: 420 });
-  const [span, setSpan] = useState<CheapWindow>("all");
+  const [span, setSpan] = useState<CheapWindow>("365");
   const [hover, setHover] = useState<number | null>(null);
 
   useLayoutEffect(() => {

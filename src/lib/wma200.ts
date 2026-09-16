@@ -4,6 +4,7 @@ import { isoFromDay } from "@/lib/powerlaw";
 export const WMA_WEEKS = 200;
 export const WMA_BIN = 0.2;
 export const WMA_TAIL = 2.4;
+const STEPS = 5;
 
 export type WmaDay = {
   t: number;
@@ -63,9 +64,13 @@ function binLabel(lo: number, hi: number | null): string {
   return `${lo.toFixed(1)}–${hi.toFixed(1)}×`;
 }
 
-function binOf(multiple: number, tail: number): number {
-  if (multiple >= tail) return tail;
-  return Math.floor(multiple / WMA_BIN + 1e-12) * WMA_BIN;
+function binIndex(multiple: number, tail: number): number {
+  if (multiple >= tail) return Math.round(tail * STEPS);
+  return Math.max(0, Math.floor(multiple * STEPS + 1e-9));
+}
+
+function loFromIndex(i: number): number {
+  return i / STEPS;
 }
 
 export function barColor(lo: number): string {
@@ -104,37 +109,35 @@ export function cheapHistogram(
   const usd = liveUsd > 0 ? liveUsd : last.usd;
   const current = usd / last.wma;
   const multiples = slice.map((d) => d.multiple);
-  const lo0 = Math.floor(Math.min(...multiples, current) / WMA_BIN + 1e-12) * WMA_BIN;
-  const hi0 = Math.ceil(Math.max(...multiples, current) / WMA_BIN - 1e-12) * WMA_BIN;
-  const tail = window === "all" ? WMA_TAIL : Math.max(hi0, WMA_BIN);
-  const start = Math.max(0, lo0);
-  const edges: number[] = [];
-  for (let x = start; x < tail - 1e-9; x = Math.round((x + WMA_BIN) * 10) / 10) edges.push(x);
+  const minM = Math.min(...multiples, current);
+  const maxM = Math.max(...multiples, current);
+  const tail =
+    window === "all" ? WMA_TAIL : Math.max(Math.ceil(maxM * STEPS - 1e-9) / STEPS, WMA_BIN);
+  const startI = Math.floor(minM * STEPS + 1e-9);
+  const lastClosedI = Math.round(tail * STEPS) - 1;
   const counts = new Map<number, number>();
-  for (const e of edges) counts.set(e, 0);
-  counts.set(tail, 0);
+  for (let i = startI; i <= lastClosedI; i++) counts.set(i, 0);
+  const tailI = Math.round(tail * STEPS);
+  counts.set(tailI, 0);
   for (const m of multiples) {
-    const key = binOf(m, tail);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const i = binIndex(m, tail);
+    counts.set(i, (counts.get(i) ?? 0) + 1);
   }
   const n = slice.length;
   const bins: WmaBin[] = [];
-  for (const e of edges) {
-    const count = counts.get(e) ?? 0;
-    bins.push({
-      lo: e,
-      hi: Math.round((e + WMA_BIN) * 10) / 10,
-      label: binLabel(e, Math.round((e + WMA_BIN) * 10) / 10),
-      count,
-      share: count / n,
-    });
+  for (let i = startI; i <= lastClosedI; i++) {
+    const lo = loFromIndex(i);
+    const hi = loFromIndex(i + 1);
+    const count = counts.get(i) ?? 0;
+    bins.push({ lo, hi, label: binLabel(lo, hi), count, share: count / n });
   }
-  const tailCount = counts.get(tail) ?? 0;
+  const tailCount = counts.get(tailI) ?? 0;
   if (window === "all" || tailCount > 0 || current >= tail) {
+    const lo = loFromIndex(tailI);
     bins.push({
-      lo: tail,
+      lo,
       hi: null,
-      label: binLabel(tail, null),
+      label: binLabel(lo, null),
       count: tailCount,
       share: tailCount / n,
     });
