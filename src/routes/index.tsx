@@ -7,6 +7,7 @@ import { RangeReturns } from "@/components/range-returns";
 import { ForwardReturns } from "@/components/forward-returns";
 import { NatureLaws } from "@/components/nature-laws";
 import { TrillionRace } from "@/components/trillion-race";
+import { CheapBitcoin } from "@/components/cheap-bitcoin";
 import { StackProjection } from "@/components/stack-projection";
 import { ModelNotes } from "@/components/model-notes";
 import { SiteFooter } from "@/components/site-footer";
@@ -499,6 +500,8 @@ function Home() {
             currency={currency}
           />
         ) : null}
+
+        <CheapBitcoin usd={spotUsd} />
 
         <NatureLaws />
 

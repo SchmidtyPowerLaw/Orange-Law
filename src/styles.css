@@ -298,11 +298,20 @@
   min-height: min(560px, 85svh);
 }
 
+.cheap-chart {
+  height: min(52svh, 420px);
+  min-height: 280px;
+}
+
 @media (min-width: 768px) {
   .power-chart,
   .nature-chart {
     height: 540px;
     min-height: 540px;
+  }
+  .cheap-chart {
+    height: 400px;
+    min-height: 400px;
   }
 }
 
