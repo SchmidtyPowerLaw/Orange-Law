@@ -22,7 +22,7 @@ import {
 } from "@/lib/history";
 import { formatBtc, formatDay, formatPrice, formatPriceCompact, formatReturn, type Currency, type FiatCurrency } from "@/lib/format";
 import { buyPopDelayMs, type PlotBuy } from "@/lib/purchases";
-import { eventSitsAbove, eventStroke, type EventTone, type PlotEvent } from "@/lib/events";
+import { eventSitsAbove, eventStroke, type PlotEvent } from "@/lib/events";
 import { cn } from "@/lib/utils";
 import { colorAtZ, quantizeColor } from "@/lib/band-color";
 import { assetMeta, assetSeries, indexAssetToBitcoin, totalReturn, type AssetId } from "@/lib/compare";
@@ -497,47 +497,6 @@ function formatEventDate(iso: string, t: number, compact: boolean): string {
   const full = formatDay(tFromIso(iso) ?? t);
   if (!compact) return full;
   return full.replace(/^([A-Za-z]{3})\.? \d{1,2}, (\d{4})$/, "$1 $2");
-}
-
-function EventChip({
-  box,
-  date,
-  label,
-  tone,
-  compact = false,
-  pop = false,
-}: {
-  box: ChipBox;
-  date: string;
-  label: string;
-  tone: EventTone;
-  compact?: boolean;
-  pop?: boolean;
-}) {
-  const color =
-    tone === "bull" || tone === "cheap"
-      ? "text-up"
-      : tone === "law"
-        ? "text-floor"
-        : "text-down";
-  return (
-    <div
-      className={cn(
-        "pointer-events-none absolute z-20 text-center leading-none",
-        compact ? "whitespace-normal" : "whitespace-nowrap",
-        pop && "event-enter",
-      )}
-      style={{
-        left: box.left,
-        top: box.top,
-        width: box.width,
-        textShadow: "0 0 5px var(--color-ink), 0 1px 2px var(--color-ink)",
-      }}
-    >
-      <p className={cn("event-chip-label font-mono tabular-nums", color)}>{label}</p>
-      <p className={cn("event-chip-date mt-px", color)}>{date}</p>
-    </div>
-  );
 }
 
 const STILL_DOCK = 36;
@@ -1826,6 +1785,9 @@ export function PowerChart({
 
           {placedEvents.map((item) => {
             const fill = eventStroke(item.event.tone);
+            const desktop = box.w >= 640;
+            const cx = item.box.left + item.box.width / 2;
+            const date = formatEventDate(item.event.iso, item.event.t, !desktop);
             return (
               <g
                 key={`${item.event.iso}-${item.event.tone}`}
@@ -1845,9 +1807,28 @@ export function PowerChart({
                   cy={item.y}
                   r={3.25}
                   fill={fill}
-                  stroke="var(--color-card)"
+                  stroke="#0c0c0c"
                   strokeWidth={1}
                 />
+                <text
+                  x={cx}
+                  y={item.box.top + (desktop ? 10 : 8)}
+                  textAnchor="middle"
+                  fill={fill}
+                  stroke="#0c0c0c"
+                  strokeWidth={desktop ? 3.4 : 2.8}
+                  paintOrder="stroke"
+                  fontFamily='IBM Plex Mono, ui-monospace, "SF Mono", Menlo, monospace'
+                  fontSize={desktop ? 10 : 8}
+                  fontWeight={500}
+                >
+                  <tspan x={cx} dy={0}>
+                    {item.event.label}
+                  </tspan>
+                  <tspan x={cx} dy={desktop ? 12 : 10} fontSize={desktop ? 8 : 6.5}>
+                    {date}
+                  </tspan>
+                </text>
               </g>
             );
           })}
@@ -1992,17 +1973,6 @@ export function PowerChart({
           width={still.width}
           height={still.height}
           opacity={still.opacity}
-        />
-      ))}
-      {placedEvents.map((item) => (
-        <EventChip
-          key={`${item.event.iso}-${item.event.tone}`}
-          box={item.box}
-          date={formatEventDate(item.event.iso, item.event.t, box.w < 640)}
-          label={item.event.label}
-          tone={item.event.tone}
-          compact={box.w < 640}
-          pop={historyPlay}
         />
       ))}
       {geo && compareFocus && compareChip ? (

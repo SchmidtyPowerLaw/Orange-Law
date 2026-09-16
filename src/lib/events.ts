@@ -40,9 +40,9 @@ export function eventSitsAbove(tone: EventTone): boolean {
 }
 
 export function eventStroke(tone: EventTone): string {
-  if (tone === "bull" || tone === "cheap") return "var(--color-up)";
-  if (tone === "law") return "var(--color-floor)";
-  return "var(--color-down)";
+  if (tone === "bull" || tone === "cheap") return "#5dff7a";
+  if (tone === "law") return "#3ee8ff";
+  return "#ff4b6a";
 }
 
 function toPlotEvent(
