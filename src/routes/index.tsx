@@ -6,6 +6,7 @@ import { PowerChart } from "@/components/power-chart";
 import { RangeReturns } from "@/components/range-returns";
 import { ForwardReturns } from "@/components/forward-returns";
 import { NatureLaws } from "@/components/nature-laws";
+import { TrillionRace } from "@/components/trillion-race";
 import { StackProjection } from "@/components/stack-projection";
 import { ModelNotes } from "@/components/model-notes";
 import { SiteFooter } from "@/components/site-footer";
@@ -500,6 +501,8 @@ function Home() {
         ) : null}
 
         <NatureLaws />
+
+        <TrillionRace />
 
         <ModelNotes />
       </main>
