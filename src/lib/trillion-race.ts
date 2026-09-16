@@ -144,6 +144,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "24.2 years",
     color: "#c84bff",
     founded: "Founded 1994",
+    logo: "/race/amazon.png",
     points: fromKnots([
       [3, 0.5 * B],
       [5.4, 28 * B],
