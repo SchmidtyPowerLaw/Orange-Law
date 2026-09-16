@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { writeSave } from "@/lib/save-file";
 
 export type ExcelExportRow = {
   iso: string;
@@ -179,6 +180,7 @@ export async function downloadChartExcel(opts: {
   jpeg: Uint8Array;
   filename: string;
   title: string;
+  handle?: FileSystemFileHandle | null;
 }): Promise<void> {
   if (opts.rows.length === 0) throw new Error("no rows");
   const lastRow = opts.rows.length + 1;
@@ -267,15 +269,7 @@ export async function downloadChartExcel(opts: {
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     compression: "DEFLATE",
   });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = opts.filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  await writeSave(opts.handle ?? null, blob, opts.filename);
 }
 
 export function excelExportFilename(currency: string, range: string): string {

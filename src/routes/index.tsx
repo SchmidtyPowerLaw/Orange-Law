@@ -37,8 +37,9 @@ import { useLiveTick, withLiveTick } from "@/lib/live-btc";
 import { useSettings } from "@/lib/settings";
 import { DISPLAY_CURRENCY_OPTIONS, formatR2, type Currency } from "@/lib/format";
 import { fairPriceUsd, fairPriceXau, isoFromDay, periodRSquared, quantilePriceUsd, quantilePriceXau, residualZOf, residualZXau } from "@/lib/powerlaw";
-import { chartExportFilename, downloadChartJpeg, renderChartJpeg } from "@/lib/export-chart";
+import { chartExportFilename, renderChartJpeg } from "@/lib/export-chart";
 import { downloadChartExcel, excelExportFilename } from "@/lib/export-excel";
+import { bytesToBlob, requestSaveHandle, writeSave } from "@/lib/save-file";
 import { usePurchases } from "@/lib/purchase-store";
 import { plotPurchases } from "@/lib/purchases";
 import { plotBuyExtremes, plotEvents, plotFutureEvents, plotHistoryEvents } from "@/lib/events";
@@ -242,11 +243,14 @@ function Home() {
     if (exporting) return;
     const node = document.getElementById("orange-law-chart");
     if (!(node instanceof HTMLElement)) return;
+    const filename = chartExportFilename(currency, range);
     setExporting("jpeg");
     try {
-      await downloadChartJpeg(node, chartExportFilename(currency, range));
-    } catch {
-      /* keep the live chart; retry from the button */
+      const handle = await requestSaveHandle(filename, "image/jpeg", ".jpg");
+      const jpeg = await renderChartJpeg(node);
+      await writeSave(handle, bytesToBlob(jpeg.bytes, "image/jpeg"), filename);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     } finally {
       setExporting(null);
     }
@@ -256,9 +260,15 @@ function Home() {
     if (exporting || !last || rows.length === 0) return;
     const node = document.getElementById("orange-law-chart");
     if (!(node instanceof HTMLElement)) return;
+    const filename = excelExportFilename(currency, range);
     setExporting("xlsx");
     try {
-      const jpeg = await renderChartJpeg(node);
+      const handle = await requestSaveHandle(
+        filename,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xlsx",
+      );
+      const jpegBytes = (await renderChartJpeg(node)).bytes;
       const preset = rangeWindow(range, last.t, rows[0].t);
       const tMin = zoom?.tMin ?? preset.tMin;
       const tMax = Math.min(last.t, zoom?.tMax ?? last.t);
@@ -291,12 +301,13 @@ function Home() {
       await downloadChartExcel({
         rows: table,
         unitLabel,
-        jpeg: jpeg.bytes,
-        filename: excelExportFilename(currency, range),
+        jpeg: jpegBytes,
+        filename,
         title: `Orange Law · ${unitLabel}`,
+        handle,
       });
-    } catch {
-      /* retry from the button */
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     } finally {
       setExporting(null);
     }

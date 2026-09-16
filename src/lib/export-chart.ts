@@ -1,3 +1,5 @@
+import { bytesToBlob, writeSave } from "@/lib/save-file";
+
 const MAX_EDGE = 4096;
 const JPEG_QUALITY = 0.95;
 const SCALE_TARGET = 4;
@@ -42,12 +44,31 @@ const HTML_STYLE_PROPS = [
   "height",
 ] as const;
 
+function toRgb(color: string): string {
+  if (!color || color === "none" || color === "transparent") return color;
+  if (color.startsWith("#") || color.startsWith("rgb")) return color;
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return color;
+  ctx.fillStyle = "#000";
+  ctx.fillStyle = color;
+  return String(ctx.fillStyle);
+}
+
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.decoding = "async";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("image load failed"));
+    const timer = window.setTimeout(() => reject(new Error("image load timeout")), 12000);
+    img.onload = () => {
+      window.clearTimeout(timer);
+      resolve(img);
+    };
+    img.onerror = () => {
+      window.clearTimeout(timer);
+      reject(new Error("image load failed"));
+    };
     img.src = url;
   });
 }
@@ -67,11 +88,11 @@ function inlineSvgPaints(source: SVGElement, clone: SVGElement) {
     const cls = src.getAttribute("class") ?? "";
     if (fillAttr === "none") dst.setAttribute("fill", "none");
     else if (fillAttr || /band-/.test(cls) || tag === "text" || tag === "tspan") {
-      if (cs.fill && cs.fill !== "none") dst.setAttribute("fill", cs.fill);
+      if (cs.fill && cs.fill !== "none") dst.setAttribute("fill", toRgb(cs.fill));
     }
     if (strokeAttr === "none") dst.setAttribute("stroke", "none");
     else if (strokeAttr || tag === "line" || tag === "path") {
-      if (cs.stroke && cs.stroke !== "none") dst.setAttribute("stroke", cs.stroke);
+      if (cs.stroke && cs.stroke !== "none") dst.setAttribute("stroke", toRgb(cs.stroke));
     }
     if (strokeAttr || tag === "line" || tag === "path") {
       if (cs.strokeWidth) dst.setAttribute("stroke-width", String(parseFloat(cs.strokeWidth) || 1));
@@ -95,6 +116,8 @@ function inlineSvgPaints(source: SVGElement, clone: SVGElement) {
 async function svgToImage(svg: SVGSVGElement, pixelW: number, pixelH: number): Promise<HTMLImageElement> {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   inlineSvgPaints(svg, clone);
+  clone.querySelectorAll("filter").forEach((node) => node.remove());
+  clone.querySelectorAll("[filter]").forEach((node) => node.removeAttribute("filter"));
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("width", String(pixelW));
   clone.setAttribute("height", String(pixelH));
@@ -103,6 +126,9 @@ async function svgToImage(svg: SVGSVGElement, pixelW: number, pixelH: number): P
   const url = URL.createObjectURL(blob);
   try {
     return await loadImage(url);
+  } catch {
+    const data = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+    return await loadImage(data);
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -183,7 +209,7 @@ export async function renderChartJpeg(node: HTMLElement): Promise<{
 
   const origin = node.getBoundingClientRect();
   for (const child of Array.from(node.children)) {
-    if (child === svg || !(child instanceof HTMLElement)) continue;
+    if (!(child instanceof HTMLImageElement) || child.naturalWidth < 1) continue;
     const cr = child.getBoundingClientRect();
     const dx = (cr.left - origin.left) * scale;
     const dy = (cr.top - origin.top) * scale;
@@ -194,12 +220,7 @@ export async function renderChartJpeg(node: HTMLElement): Promise<{
     if (!(opacity > 0.02)) continue;
     ctx.save();
     ctx.globalAlpha = Number.isFinite(opacity) ? opacity : 1;
-    if (child instanceof HTMLImageElement && child.naturalWidth > 0) {
-      ctx.drawImage(child, dx, dy, dw, dh);
-    } else {
-      const overlay = await htmlToImage(child, scale);
-      if (overlay) ctx.drawImage(overlay, dx, dy, dw, dh);
-    }
+    ctx.drawImage(child, dx, dy, dw, dh);
     ctx.restore();
   }
 
@@ -217,15 +238,7 @@ export async function renderChartJpeg(node: HTMLElement): Promise<{
 
 export async function downloadChartJpeg(node: HTMLElement, filename: string): Promise<void> {
   const jpeg = await renderChartJpeg(node);
-  const url = URL.createObjectURL(new Blob([jpeg.bytes.buffer as ArrayBuffer], { type: "image/jpeg" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  await writeSave(null, bytesToBlob(jpeg.bytes, "image/jpeg"), filename);
 }
 
 export function chartExportFilename(currency: string, range: string): string {
