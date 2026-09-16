@@ -9,7 +9,7 @@ import {
   racePath,
 } from "@/lib/trillion-race";
 
-const PAD = { top: 36, right: 28, bottom: 36, left: 52 };
+const PAD = { top: 28, right: 22, bottom: 36, left: 52 };
 
 function logLerp(a: number, b: number, x: number) {
   return (Math.log10(x) - Math.log10(a)) / (Math.log10(b) - Math.log10(a));
@@ -45,7 +45,7 @@ export function TrillionRace() {
   }, []);
 
   const geo = useMemo(() => {
-    const pad = compact ? { top: 32, right: 16, bottom: 34, left: 44 } : PAD;
+    const pad = compact ? { top: 24, right: 14, bottom: 34, left: 44 } : PAD;
     const xAt = (t: number) => pad.left + linLerp(0, RACE_X_MAX, t) * (box.w - pad.left - pad.right);
     const yAt = (m: number) =>
       pad.top + (1 - logLerp(RACE_Y_MIN, RACE_Y_MAX, Math.min(RACE_Y_MAX, Math.max(RACE_Y_MIN, m)))) * (box.h - pad.top - pad.bottom);
@@ -73,40 +73,44 @@ export function TrillionRace() {
       fy: number;
       x: number;
       ty: number;
+      w: number;
+      h: number;
       color: string;
       name: string;
       years: string;
     }> = [];
     const yFinish = geo.yAt(RACE_TRILLION);
-    const gap = compact ? 22 : 26;
-    const minX = geo.pad.left + (compact ? 48 : 56);
+    const lineH = compact ? 22 : 26;
+    const gap = compact ? 24 : 28;
+    const minX = geo.pad.left + 8;
     const maxX = box.w - geo.pad.right - 4;
     const minTy = geo.pad.top + (compact ? 12 : 14);
-    const maxTy = box.h - geo.pad.bottom - (compact ? 18 : 22);
-    const above = Math.max(minTy, yFinish - (compact ? 16 : 20));
-    const below = Math.min(maxTy, yFinish + (compact ? 20 : 24));
+    const baseTy = yFinish - (compact ? 18 : 22);
+    const hits = (x: number, ty: number, w: number, h: number) =>
+      placed.some((p) => x - w < p.x + 6 && x + 6 > p.x - p.w && ty < p.ty + p.h && ty + h > p.ty);
+
     for (const line of ordered) {
       const fx = geo.xAt(line.end.t);
       const fy = geo.yAt(line.end.mcap);
-      const wEst = Math.max(line.horse.name.length, line.horse.yearsLabel.length) * (compact ? 5.5 : 6.4);
-      let x = Math.min(fx - 8, maxX);
-      x = Math.max(minX, x, geo.pad.left + wEst);
-      x = Math.min(x, maxX);
-      let ty = above;
-      const prev = placed[placed.length - 1];
-      if (prev && Math.abs(x - prev.x) < (compact ? 70 : 86) && Math.abs(ty - prev.ty) < gap) {
-        ty = prev.ty < yFinish ? below : above;
+      const w = Math.max(line.horse.name.length, line.horse.yearsLabel.length) * (compact ? 5.6 : 6.5) + 4;
+      const h = lineH;
+      let x = Math.min(Math.max(fx - 8, minX + w), maxX);
+      let ty = baseTy;
+      while (ty > minTy + 1 && hits(x, ty, w, h)) ty -= gap;
+      if (hits(x, ty, w, h)) {
+        x = Math.max(minX + w, x - (compact ? 56 : 70));
+        ty = baseTy;
+        while (ty > minTy + 1 && hits(x, ty, w, h)) ty -= gap;
       }
-      if (prev && Math.abs(x - prev.x) < (compact ? 70 : 86) && Math.abs(ty - prev.ty) < gap) {
-        x = Math.max(minX, prev.x - (compact ? 70 : 86));
-      }
-      ty = Math.min(maxTy, Math.max(minTy, ty));
+      ty = Math.max(minTy, Math.min(baseTy, ty));
       placed.push({
         id: line.horse.id,
         fx,
         fy,
         x,
         ty,
+        w,
+        h,
         color: line.horse.color,
         name: line.horse.name,
         years: line.horse.yearsLabel,
