@@ -9,7 +9,7 @@ import {
   racePath,
 } from "@/lib/trillion-race";
 
-const PAD = { top: 28, right: 118, bottom: 36, left: 52 };
+const PAD = { top: 36, right: 28, bottom: 36, left: 52 };
 
 function logLerp(a: number, b: number, x: number) {
   return (Math.log10(x) - Math.log10(a)) / (Math.log10(b) - Math.log10(a));
@@ -45,7 +45,7 @@ export function TrillionRace() {
   }, []);
 
   const geo = useMemo(() => {
-    const pad = compact ? { ...PAD, right: 96, left: 46 } : PAD;
+    const pad = compact ? { top: 32, right: 16, bottom: 34, left: 44 } : PAD;
     const xAt = (t: number) => pad.left + linLerp(0, RACE_X_MAX, t) * (box.w - pad.left - pad.right);
     const yAt = (m: number) =>
       pad.top + (1 - logLerp(RACE_Y_MIN, RACE_Y_MAX, Math.min(RACE_Y_MAX, Math.max(RACE_Y_MIN, m)))) * (box.h - pad.top - pad.bottom);
@@ -69,26 +69,43 @@ export function TrillionRace() {
     const ordered = [...geo.lines].sort((a, b) => a.end.t - b.end.t);
     const placed: Array<{
       id: string;
+      fx: number;
+      fy: number;
       x: number;
-      y: number;
       ty: number;
       color: string;
       name: string;
       years: string;
     }> = [];
+    const yFinish = geo.yAt(RACE_TRILLION);
     const gap = compact ? 22 : 26;
+    const minX = geo.pad.left + (compact ? 48 : 56);
+    const maxX = box.w - geo.pad.right - 4;
+    const minTy = geo.pad.top + (compact ? 12 : 14);
+    const maxTy = box.h - geo.pad.bottom - (compact ? 18 : 22);
+    const above = Math.max(minTy, yFinish - (compact ? 16 : 20));
+    const below = Math.min(maxTy, yFinish + (compact ? 20 : 24));
     for (const line of ordered) {
-      const x = geo.xAt(line.end.t);
-      const y = geo.yAt(line.end.mcap);
-      let ty = y - (compact ? 14 : 18);
+      const fx = geo.xAt(line.end.t);
+      const fy = geo.yAt(line.end.mcap);
+      const wEst = Math.max(line.horse.name.length, line.horse.yearsLabel.length) * (compact ? 5.5 : 6.4);
+      let x = Math.min(fx - 8, maxX);
+      x = Math.max(minX, x, geo.pad.left + wEst);
+      x = Math.min(x, maxX);
+      let ty = above;
       const prev = placed[placed.length - 1];
-      if (prev && x - prev.x < (compact ? 64 : 78) && ty - prev.ty > -gap) {
-        ty = prev.ty - gap;
+      if (prev && Math.abs(x - prev.x) < (compact ? 70 : 86) && Math.abs(ty - prev.ty) < gap) {
+        ty = prev.ty < yFinish ? below : above;
       }
+      if (prev && Math.abs(x - prev.x) < (compact ? 70 : 86) && Math.abs(ty - prev.ty) < gap) {
+        x = Math.max(minX, prev.x - (compact ? 70 : 86));
+      }
+      ty = Math.min(maxTy, Math.max(minTy, ty));
       placed.push({
         id: line.horse.id,
+        fx,
+        fy,
         x,
-        y,
         ty,
         color: line.horse.color,
         name: line.horse.name,
@@ -96,7 +113,7 @@ export function TrillionRace() {
       });
     }
     return placed;
-  }, [geo, compact]);
+  }, [geo, compact, box.w, box.h]);
 
   const hitHorse = (clientX: number, clientY: number, svg: SVGSVGElement) => {
     const rect = svg.getBoundingClientRect();
@@ -247,31 +264,32 @@ export function TrillionRace() {
               pointerEvents="none"
               opacity={hoverId && hoverId !== item.id ? 0.22 : 1}
             >
-              {Math.abs(item.ty - item.y) > 3 ? (
+              {Math.hypot(item.x - item.fx, item.ty - item.fy) > 4 ? (
                 <line
-                  x1={item.x}
-                  y1={item.y}
+                  x1={item.fx}
+                  y1={item.fy}
                   x2={item.x}
                   y2={item.ty}
                   stroke={item.color}
                   strokeWidth={0.8}
-                  opacity={0.55}
+                  opacity={0.5}
                 />
               ) : null}
-              <circle cx={item.x} cy={item.y} r={item.id === "btc" ? 3.4 : 2.6} fill={item.color} />
+              <circle cx={item.fx} cy={item.fy} r={item.id === "btc" ? 3.4 : 2.6} fill={item.color} />
               <text
-                x={item.x + 6}
+                x={item.x}
                 y={item.ty}
+                textAnchor="end"
                 fill={item.color}
                 stroke="var(--color-background)"
                 strokeWidth={3.2}
                 paintOrder="stroke"
                 className="chart-asset-label"
               >
-                <tspan x={item.x + 6} dy={0}>
+                <tspan x={item.x} dy={0}>
                   {item.name}
                 </tspan>
-                <tspan x={item.x + 6} dy={compact ? 9 : 12}>
+                <tspan x={item.x} dy={compact ? 9 : 12}>
                   {item.years}
                 </tspan>
               </text>

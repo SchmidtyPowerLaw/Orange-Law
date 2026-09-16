@@ -220,7 +220,7 @@ export const RACE_HORSES: RaceHorse[] = [
 
 export const RACE_X_MAX = 46;
 export const RACE_Y_MIN = 1_000_000;
-export const RACE_Y_MAX = 2_200_000_000_000;
+export const RACE_Y_MAX = 8_000_000_000_000;
 export const RACE_TRILLION = TRILLION;
 
 export function racePath(
