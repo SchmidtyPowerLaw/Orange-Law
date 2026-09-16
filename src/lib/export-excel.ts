@@ -9,10 +9,9 @@ export type ExcelExportRow = {
 };
 
 async function loadJSZip() {
-  const g = globalThis as unknown as { setImmediate?: (...args: unknown[]) => unknown };
+  const g = globalThis as unknown as { setImmediate?: Function };
   if (typeof g.setImmediate !== "function") {
-    g.setImmediate = (fn: (...args: unknown[]) => void, ...args: unknown[]) =>
-      globalThis.setTimeout(fn, 0, ...args);
+    g.setImmediate = (fn: Function, ...args: unknown[]) => setTimeout(fn as () => void, 0, ...args);
   }
   const mod = await import("jszip");
   return mod.default;
