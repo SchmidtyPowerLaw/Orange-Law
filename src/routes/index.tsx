@@ -36,6 +36,7 @@ import { useLiveTick, withLiveTick } from "@/lib/live-btc";
 import { useSettings } from "@/lib/settings";
 import { DISPLAY_CURRENCY_OPTIONS, formatR2, type Currency } from "@/lib/format";
 import { isoFromDay, periodRSquared, residualZOf, residualZXau } from "@/lib/powerlaw";
+import { chartExportFilename, downloadChartJpeg } from "@/lib/export-chart";
 import { usePurchases } from "@/lib/purchase-store";
 import { plotPurchases } from "@/lib/purchases";
 import { plotBuyExtremes, plotEvents, plotFutureEvents, plotHistoryEvents } from "@/lib/events";
@@ -79,6 +80,7 @@ function Home() {
   const [selB, setSelB] = useState<SpanPoint | null>(null);
   const [zoom, setZoom] = useState<{ tMin: number; tMax: number } | null>(null);
   const [historyPlay, setHistoryPlay] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const rows = useMemo(() => mergeQuote(HISTORY, quote), [quote]);
 
@@ -234,6 +236,20 @@ function Home() {
     setHistoryPlay(true);
   };
 
+  const exportGraph = async () => {
+    if (exporting) return;
+    const node = document.getElementById("orange-law-chart");
+    if (!(node instanceof HTMLElement)) return;
+    setExporting(true);
+    try {
+      await downloadChartJpeg(node, chartExportFilename(currency, range));
+    } catch {
+      /* keep the live chart; retry from the button */
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="relative z-10 min-h-dvh overflow-x-hidden pb-16 text-foreground">
       <header className="app-header sticky top-0 z-20 border-b border-border/80 bg-background/70 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
@@ -246,14 +262,24 @@ function Home() {
               Power Law
             </p>
           </div>
-          <Segmented<Currency>
-            ariaLabel="Display currency"
-            value={currency}
-            onChange={setCurrency}
-            size="sm"
-            wrap={false}
-            options={DISPLAY_CURRENCY_OPTIONS}
-          />
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <Segmented<Currency>
+              ariaLabel="Display currency"
+              value={currency}
+              onChange={setCurrency}
+              size="sm"
+              wrap={false}
+              options={DISPLAY_CURRENCY_OPTIONS}
+            />
+            <button
+              type="button"
+              onClick={() => void exportGraph()}
+              disabled={exporting}
+              className="h-7 shrink-0 rounded-md border border-sand/30 bg-raised px-2 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-sand transition-colors hover:border-primary hover:text-primary disabled:opacity-60 sm:h-8 sm:px-2.5 sm:text-[10px]"
+            >
+              {exporting ? "Exporting…" : "Export Graph JPEG"}
+            </button>
+          </div>
         </div>
       </header>
 

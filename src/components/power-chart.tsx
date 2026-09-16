@@ -1556,6 +1556,7 @@ export function PowerChart({
       ) : null}
       <div
         ref={wrapRef}
+        id="orange-law-chart"
         className="power-chart relative w-full overflow-hidden rounded-lg bg-card"
         onPointerLeave={() => {
           setHover(null);
