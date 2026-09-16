@@ -19,7 +19,7 @@ const TONE: Record<string, string> = {
 };
 
 export function ForwardReturns({ tNow, priceNow, fx, currency }: Props) {
-  const rows = forwardProjections(tNow, priceNow, fx);
+  const rows = forwardProjections(tNow, priceNow, fx, currency === "XAU");
   const [years, setYears] = useState<HorizonYear>(5);
   const selected = rows.find((row) => row.years === years) ?? rows[0];
 

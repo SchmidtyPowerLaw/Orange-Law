@@ -83,7 +83,8 @@ export function priceOf(row: HistoryRow, currency: Currency, liveXau?: number, l
     return row.cad;
   }
   if (currency === "XAU") {
-    const gold = liveXau && liveXau > 0 ? liveXau : row.xau;
+    // Contemporaneous gold — same ratio Giovanni fits (oz per BTC that day).
+    const gold = row.xau > 0 ? row.xau : liveXau && liveXau > 0 ? liveXau : 0;
     return gold > 0 ? row.usd / gold : 0;
   }
   return row.usd;
@@ -225,11 +226,13 @@ export function scaleAt(
   liveXau: number,
 ): number {
   if (currency === "USD") return 1;
-  // CAD and gold both trend versus the dollar. Express the USD power law —
-  // path and quantile bands — at the *latest* FX / gold print so the
-  // scale-invariant slope is preserved and cycle tops stay on +2σ.
-  // Native CAD / ounces still feed day-over-day % without this override.
-  if (currency === "XAU") return liveXau > 0 ? 1 / liveXau : 0;
+  if (currency === "XAU") {
+    const row = rowAtT(rows, t);
+    const gold = row && row.xau > 0 ? row.xau : liveXau;
+    return gold > 0 ? 1 / gold : 0;
+  }
+  // CAD is a dollar translation. Freeze at the latest FX so the USD law’s
+  // slope and +2σ tops stay straight (gold is its own fitted law instead).
   return liveFx > 0 ? liveFx : 1;
 }
 

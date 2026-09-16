@@ -72,7 +72,7 @@ export function StackProjection({ tNow, priceNow, fx, currency }: Props) {
 
   const projection = useMemo(() => {
     if (!tTarget || !dateInRange || amount <= 0) return null;
-    return stackProjection(tNow, priceNow, fx, tTarget, amount);
+    return stackProjection(tNow, priceNow, fx, tTarget, amount, currency === "XAU");
   }, [tTarget, dateInRange, amount, tNow, priceNow, fx]);
 
   const fair = projection?.bands.find((b) => b.id === "fair") ?? null;

@@ -1,4 +1,4 @@
-import { fairPriceUsd, quantilePriceUsd, residualZ } from "@/lib/powerlaw";
+import { fairPriceUsd, fairPriceXau, quantilePriceUsd, quantilePriceXau, residualZ, residualZXau, GOLD_SIGMA, SIGMA } from "@/lib/powerlaw";
 import { currencyMark, currencyName, formatPct, formatPrice, type Currency } from "@/lib/format";
 import { SigmaMeter } from "@/components/sigma-meter";
 import { colorAtZ } from "@/lib/band-color";
@@ -13,11 +13,14 @@ type Props = {
 };
 
 export function PriceHero({ price, priceUsd, currency, t, dayChange = null }: Props) {
-  const fair = fairPriceUsd(t) * (price / priceUsd);
-  const floor = quantilePriceUsd(t, -2) * (price / priceUsd);
-  const top = quantilePriceUsd(t, 2) * (price / priceUsd);
-  const vsFair = price / fair - 1;
-  const z = residualZ(priceUsd, t);
+  const gold = currency === "XAU";
+  const scale = priceUsd > 0 ? price / priceUsd : 1;
+  const fair = gold ? fairPriceXau(t) : fairPriceUsd(t) * scale;
+  const floor = gold ? quantilePriceXau(t, -2) : quantilePriceUsd(t, -2) * scale;
+  const top = gold ? quantilePriceXau(t, 2) : quantilePriceUsd(t, 2) * scale;
+  const vsFair = fair > 0 ? price / fair - 1 : 0;
+  const z = gold ? residualZXau(price, t) : residualZ(priceUsd, t);
+  const sigma = gold ? GOLD_SIGMA : SIGMA;
   const priceColor = colorAtZ(z);
   const changeTone =
     dayChange == null
@@ -88,7 +91,7 @@ export function PriceHero({ price, priceUsd, currency, t, dayChange = null }: Pr
           </span>
         </div>
       </div>
-      <SigmaMeter priceUsd={priceUsd} t={t} />
+      <SigmaMeter z={z} sigma={sigma} />
       <div className="grid grid-cols-3 gap-x-2">
         <BandPrice label="Floor" value={formatPrice(floor, currency)} tone="floor" />
         <BandPrice label="Fair" value={formatPrice(fair, currency)} tone="fair" />

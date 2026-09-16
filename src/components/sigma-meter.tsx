@@ -1,24 +1,26 @@
-import { residualZ } from "@/lib/powerlaw";
+import { residualZ, SIGMA } from "@/lib/powerlaw";
 import { formatMultiple, formatSigma } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  priceUsd: number;
-  t: number;
+  priceUsd?: number;
+  t?: number;
+  z?: number;
+  sigma?: number;
 };
 
-export function SigmaMeter({ priceUsd, t }: Props) {
-  const z = residualZ(priceUsd, t);
-  const clamped = Math.min(2.15, Math.max(-2.15, z));
+export function SigmaMeter({ priceUsd = 0, t = 0, z, sigma = SIGMA }: Props) {
+  const signed = z ?? residualZ(priceUsd, t);
+  const clamped = Math.min(2.15, Math.max(-2.15, signed));
   const pct = ((clamped + 2) / 4) * 100;
-  const belowFair = z < 0;
-  const vsFloor = 10 ** ((z + 2) * 0.302);
+  const belowFair = signed < 0;
+  const vsFloor = 10 ** ((signed + 2) * sigma);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="font-mono text-sm tabular-nums text-floor">
-          {formatSigma(z)}
+          {formatSigma(signed)}
           <span className="ml-2 font-sans text-muted-foreground">
             {belowFair ? "below" : "above"} fair value
           </span>
@@ -46,12 +48,12 @@ export function SigmaMeter({ priceUsd, t }: Props) {
   );
 }
 
-export function SigmaCaption({ className }: { className?: string }) {
+export function SigmaCaption({ className, gold = false }: { className?: string; gold?: boolean }) {
   return (
     <p className={cn("text-xs text-muted-foreground", className)}>
-      Bands are log-normal quantiles around the fitted law (σ = 0.302 dex). Cycle
-      swings of about ±1σ are typical; a print more than 3σ below the fit would
-      falsify the floor.
+      {gold
+        ? "GOLD bands follow Giovanni’s Gold/BTC power law (β = 5.41, σ = 0.330 dex) using each day’s gold print — not a constant conversion of the dollar law."
+        : "Bands are log-normal quantiles around the fitted law (σ = 0.302 dex). Cycle swings of about ±1σ are typical; a print more than 3σ below the fit would falsify the floor."}
     </p>
   );
 }

@@ -35,7 +35,7 @@ import { guessDisplayCurrency } from "@/lib/geo-currency";
 import { useLiveTick, withLiveTick } from "@/lib/live-btc";
 import { useSettings } from "@/lib/settings";
 import { DISPLAY_CURRENCY_OPTIONS, formatR2, type Currency } from "@/lib/format";
-import { isoFromDay, periodRSquared, residualZOf } from "@/lib/powerlaw";
+import { isoFromDay, periodRSquared, residualZOf, residualZXau } from "@/lib/powerlaw";
 import { usePurchases } from "@/lib/purchase-store";
 import { plotPurchases } from "@/lib/purchases";
 import { plotBuyExtremes, plotEvents, plotFutureEvents, plotHistoryEvents } from "@/lib/events";
@@ -188,8 +188,12 @@ function Home() {
     const preset = rangeWindow(range, last.t, rows[0].t);
     const tMin = zoom?.tMin ?? preset.tMin;
     const tMax = Math.min(last.t, zoom?.tMax ?? last.t);
-    return periodRSquared(rows, tMin, tMax);
-  }, [rows, range, last, zoom]);
+    const series =
+      currency === "XAU"
+        ? rows.map((r) => ({ t: r.t, usd: r.xau > 0 ? r.usd / r.xau : 0 }))
+        : rows;
+    return periodRSquared(series, tMin, tMax);
+  }, [rows, range, last, zoom, currency]);
 
   const purchaseRows = usePurchases((s) => s.rows);
   const buyCurrency = usePurchases((s) => s.currency);
@@ -204,8 +208,10 @@ function Home() {
   );
   const futureEvents = useMemo(() => {
     if (!showFuture || !last) return [];
-    return plotFutureEvents(last.t, residualZOf(last.usd, last.t, 1), lastScale(rows, quote, currency));
-  }, [showFuture, last, rows, quote, currency]);
+    const zNow =
+      currency === "XAU" ? residualZXau(spot, last.t) : residualZOf(last.usd, last.t, 1);
+    return plotFutureEvents(last.t, zNow, lastScale(rows, quote, currency), currency);
+  }, [showFuture, last, rows, quote, currency, spot]);
   const chartEvents = showFuture ? [...events, ...futureEvents] : events;
   const buyEvents = useMemo(
     () => (showBuys ? plotBuyExtremes(purchaseRows, rows, currency, xau, lastFx(rows, quote)) : []),
@@ -367,7 +373,7 @@ function Home() {
             onDate={onSpanDate}
           />
           <div className="mt-6 px-1">
-            <SigmaCaption />
+            <SigmaCaption gold={currency === "XAU"} />
           </div>
           <PurchaseBar
             history={rows}

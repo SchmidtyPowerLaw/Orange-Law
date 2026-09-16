@@ -5,7 +5,9 @@ import {
   dateFromDay,
   daysSinceGenesis,
   quantilePriceUsd,
+  quantilePriceXau,
   residualZOf,
+  residualZXau,
   tFromIso,
 } from "@/lib/powerlaw";
 import {
@@ -211,12 +213,12 @@ function priceFromY(
   return 10 ** (Math.log10(pMin) + clamped * (Math.log10(pMax) - Math.log10(pMin)));
 }
 
-function nearestProjectedBand(usd: number, t: number) {
+function nearestProjectedBand(price: number, t: number, gold: boolean) {
   let best = PROJECTED_QUANTILES.find((q) => q.id === "fair") ?? PROJECTED_QUANTILES[0];
   let bestD = Infinity;
   for (const q of PROJECTED_QUANTILES) {
-    const model = quantilePriceUsd(t, q.z);
-    const d = Math.abs(Math.log10(model) - Math.log10(Math.max(usd, 1e-8)));
+    const model = gold ? quantilePriceXau(t, q.z) : quantilePriceUsd(t, q.z);
+    const d = Math.abs(Math.log10(model) - Math.log10(Math.max(price, 1e-8)));
     if (d < bestD) {
       bestD = d;
       best = q;
@@ -628,6 +630,7 @@ function placeEventLabels(
     xAt: (t: number) => number;
     yAt: (p: number) => number;
     fx: (t: number) => number;
+    qAt: (t: number, z: number) => number;
     tNow: number;
   },
   boxW: number,
@@ -652,8 +655,8 @@ function placeEventLabels(
   for (const event of sorted) {
     const x = geo.xAt(event.t);
     const yDot = geo.yAt(Math.max(event.spot, 1e-8));
-    const yHi = geo.yAt(quantilePriceUsd(event.t, 2.15) * geo.fx(event.t));
-    const yLo = geo.yAt(quantilePriceUsd(event.t, -2.35) * geo.fx(event.t));
+    const yHi = geo.yAt(geo.qAt(event.t, 2.15));
+    const yLo = geo.yAt(geo.qAt(event.t, -2.35));
     const above = eventSitsAbove(event.tone);
     const buyMark = event.tone === "cheap" || event.tone === "expensive";
     const isFuture = event.t > geo.tNow + 1;
@@ -870,6 +873,10 @@ export function PowerChart({
     const padBottom = eventsInView ? (compact ? 56 : 80) : PAD.bottom;
     const padTop = PAD.top;
     const fx = (t: number) => scaleAt(rows, t, currency, liveFx, liveXau);
+    const qAt = (t: number, z: number) =>
+      currency === "XAU" ? quantilePriceXau(t, z) : quantilePriceUsd(t, z) * fx(t);
+    const zAt = (price: number, t: number) =>
+      currency === "XAU" ? residualZXau(price, t) : residualZOf(price, t, fx(t));
     const xAt = (t: number) =>
       PAD.left +
       logLerp(tMin, tMax, Math.min(tMax, Math.max(tMin, t))) * (box.w - PAD.left - PAD.right);
@@ -893,12 +900,12 @@ export function PowerChart({
       }
       return { id, label: meta.short, color: meta.color, points };
     });
-    const qLo = quantilePriceUsd(tMin, currency === "XAU" ? -3.6 : -3.45) * Math.max(fx(tMin), 0);
+    const qLo = qAt(tMin, currency === "XAU" ? -3.6 : -3.45);
     const floorEps = currency === "XAU" ? 1e-12 : 1e-8;
     const pMin = Math.max(floorEps, qLo > 0 ? qLo * (currency === "XAU" ? 0.32 : 0.55) : floorEps);
     const tForMax = showFuture ? tMax : Math.min(tMax, tNow + DAYS_PER_YEAR * (compact ? 1 : 3));
     const pMax = Math.max(
-      quantilePriceUsd(tForMax, compact ? 2.1 : 2.25) * fx(tForMax),
+      qAt(tForMax, compact ? 2.1 : 2.25),
       Number.isFinite(maxSpot) ? maxSpot : 0,
     ) * (compact ? 1.06 : 1.12);
     const yAt = (p: number) => {
@@ -912,7 +919,7 @@ export function PowerChart({
       const u = i / samples;
       ts.push(10 ** (Math.log10(tMin) + u * (Math.log10(tMax) - Math.log10(tMin))));
     }
-    const qLine = (z: number) => ts.map((t) => ({ x: xAt(t), y: yAt(quantilePriceUsd(t, z) * fx(t)) }));
+    const qLine = (z: number) => ts.map((t) => ({ x: xAt(t), y: yAt(qAt(t, z)) }));
     const band = (zLo: number, zHi: number) => {
       const hi = qLine(zHi);
       const lo = qLine(zLo).slice().reverse();
@@ -929,7 +936,7 @@ export function PowerChart({
       pricePts.push({
         x,
         y: yAt(priceOf(row, currency, liveXau, liveFx)),
-        z: residualZOf(priceOf(row, currency, liveXau, liveFx), row.t, fx(row.t)),
+        z: zAt(priceOf(row, currency, liveXau, liveFx), row.t),
       });
     }
 
@@ -954,9 +961,9 @@ export function PowerChart({
     const tFloorLabel = 10 ** (logT0 + floorU * logSpan);
     const tFloorB = Math.min(tMax, 10 ** (Math.log10(tFloorLabel) + 0.08 * (Math.log10(tMax) - Math.log10(tMin))));
     const floorAx = xAt(tFloorLabel);
-    const floorAy = yAt(quantilePriceUsd(tFloorLabel, -2) * fx(tFloorLabel));
+    const floorAy = yAt(qAt(tFloorLabel, -2));
     const floorBx = xAt(tFloorB);
-    const floorBy = yAt(quantilePriceUsd(tFloorB, -2) * fx(tFloorB));
+    const floorBy = yAt(qAt(tFloorB, -2));
     const floorAngle =
       (Math.atan2(floorBy - floorAy, Math.max(1e-6, floorBx - floorAx)) * 180) / Math.PI;
 
@@ -972,6 +979,7 @@ export function PowerChart({
       xAt,
       yAt,
       fx,
+      qAt,
       pMin,
       pMax,
       bands: {
@@ -994,7 +1002,8 @@ export function PowerChart({
       futureSegs: (() => {
         if (!showFuture) return [] as Array<{ d: string; color: string }>;
         const last = rows[rows.length - 1];
-        const zNow = residualZOf(priceOf(last, currency, liveXau, liveFx), tNow, fx(tNow));
+        const lastPx = priceOf(last, currency, liveXau, liveFx);
+        const zNow = zAt(lastPx, tNow);
         const path = futurePricePath(tNow, zNow, tMax, compact ? 8 : 5);
         const pts: { x: number; y: number; z: number }[] = [];
         let prevX = -999;
@@ -1003,7 +1012,7 @@ export function PowerChart({
           const x = xAt(p.t);
           if (pts.length > 0 && x - prevX < 0.55) continue;
           prevX = x;
-          pts.push({ x, y: yAt(p.usd * fx(p.t)), z: p.z });
+          pts.push({ x, y: yAt(qAt(p.t, p.z)), z: p.z });
         }
         return priceColorSegments(pts);
       })(),
@@ -1033,7 +1042,7 @@ export function PowerChart({
       last: {
         x: xAt(tNow),
         y: yAt(priceOf(rows[rows.length - 1], currency, liveXau, liveFx)),
-        color: colorAtZ(residualZOf(priceOf(rows[rows.length - 1], currency, liveXau, liveFx), tNow, fx(tNow))),
+        color: colorAtZ(zAt(priceOf(rows[rows.length - 1], currency, liveXau, liveFx), tNow)),
       },
       priceTicks: niceLogTicks(pMin, pMax).map((v) => ({ v, y: yAt(v) })),
       years: thinAxisTicks(
@@ -1048,7 +1057,7 @@ export function PowerChart({
         { z: 2, text: "TOP", fill: "var(--chart-top)" },
       ].map((item) => ({
         ...item,
-        y: yAt(quantilePriceUsd(tMax, item.z) * fx(tMax)),
+        y: yAt(qAt(tMax, item.z)),
       })),
       floorLabel: {
         x: floorAx,
@@ -1150,10 +1159,11 @@ export function PowerChart({
 
     const tProj = Math.round(t);
     const displayPrice = priceFromY(yPx, geo.pMin, geo.pMax, box.h, geo.padTop, geo.padBottom);
+    const gold = currency === "XAU";
     const scale = Math.max(geo.fx(tProj), 1e-12);
-    const usdGuess = displayPrice / scale;
-    const band = nearestProjectedBand(usdGuess, tProj);
-    const usd = quantilePriceUsd(tProj, band.z);
+    const modelGuess = gold ? displayPrice : displayPrice / scale;
+    const band = nearestProjectedBand(modelGuess, tProj, gold);
+    const usd = gold ? quantilePriceXau(tProj, band.z) * (liveXau > 0 ? liveXau : 1) : quantilePriceUsd(tProj, band.z);
     const cad = usd * liveFx;
     const point: SpanPoint = { t: tProj, usd, cad, xau: liveXau, projected: true, band: band.id };
     return { point, x: geo.xAt(tProj), y: geo.yAt(priceOf(point, currency, liveXau, liveFx)) };

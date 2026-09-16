@@ -1,7 +1,7 @@
 import { futureEventMarks } from "@/lib/future-path";
 import type { Currency } from "@/lib/format";
 import { type HistoryRow, priceOf, rowAtT } from "@/lib/history";
-import { residualZ, tFromIso } from "@/lib/powerlaw";
+import { quantilePriceXau, residualZ, tFromIso } from "@/lib/powerlaw";
 import type { PurchaseRow } from "@/lib/purchases";
 
 export type EventTone = "bull" | "bear" | "cheap" | "expensive" | "law";
@@ -118,8 +118,10 @@ export function plotFutureEvents(
   tNow: number,
   zNow: number,
   fx: number,
+  currency: Currency = "USD",
 ): PlotEvent[] {
-  if (!(tNow > 0) || !Number.isFinite(zNow) || !(fx > 0)) return [];
+  if (!(tNow > 0) || !Number.isFinite(zNow)) return [];
+  if (currency !== "XAU" && !(fx > 0)) return [];
   return futureEventMarks(tNow, zNow)
     .filter((mark) => mark.t > tNow + 1)
     .map((mark) => ({
@@ -127,7 +129,10 @@ export function plotFutureEvents(
       label: mark.label,
       tone: mark.tone,
       t: mark.t,
-      spot: mark.usd * fx,
+      spot:
+        currency === "XAU"
+          ? quantilePriceXau(mark.t, residualZ(mark.usd, mark.t))
+          : mark.usd * fx,
     }));
 }
 

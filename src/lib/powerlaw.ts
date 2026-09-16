@@ -81,6 +81,35 @@ export function residualZOf(price: number, t: number, scale = 1): number {
   return (Math.log10(price) - Math.log10(fair)) / SIGMA;
 }
 
+/**
+ * Giovanni’s Gold/BTC power law (Aug 2010–Mar 2026):
+ * Gold/BTC = 5.62e18 · t^(−5.4102), σ = 0.330 dex, R² = 0.9489.
+ * We chart the inverse (troy oz of gold per BTC), so β flips sign.
+ */
+export const GOLD_BETA = 5.4102;
+export const GOLD_BTC_PER_OZ_K = 5.62e18;
+export const GOLD_LOG10_INTERCEPT = -Math.log10(GOLD_BTC_PER_OZ_K);
+export const GOLD_SIGMA = 0.330;
+export const GOLD_R_SQUARED = 0.9489;
+
+export function log10FairXau(t: number): number {
+  if (t <= 0) return Number.NEGATIVE_INFINITY;
+  return GOLD_LOG10_INTERCEPT + GOLD_BETA * Math.log10(t);
+}
+
+export function fairPriceXau(t: number): number {
+  return 10 ** log10FairXau(t);
+}
+
+export function quantilePriceXau(t: number, z: number): number {
+  return 10 ** (log10FairXau(t) + z * GOLD_SIGMA);
+}
+
+export function residualZXau(ozPerBtc: number, t: number): number {
+  if (ozPerBtc <= 0 || t <= 0) return 0;
+  return (Math.log10(ozPerBtc) - log10FairXau(t)) / GOLD_SIGMA;
+}
+
 /** Pearson R² of log10(price) vs log10(t) on the inclusive [tMin, tMax] window. */
 export function periodRSquared(
   points: Array<{ t: number; usd: number }>,
@@ -150,12 +179,13 @@ export function forwardProjections(
   tNow: number,
   priceNow: number,
   fx: number,
+  gold = false,
 ): ForwardRow[] {
   return HORIZONS_YEARS.map((years) => {
     const days = Math.round(years * DAYS_PER_YEAR);
     const t = tNow + days;
     const cells = PROJECTED_QUANTILES.map((q) => {
-      const price = quantilePriceUsd(t, q.z) * fx;
+      const price = gold ? quantilePriceXau(t, q.z) : quantilePriceUsd(t, q.z) * fx;
       return {
         z: q.z,
         id: q.id,
@@ -239,13 +269,14 @@ export function stackProjection(
   fx: number,
   tTarget: number,
   holdings: number,
+  gold = false,
 ): StackProjection | null {
   const days = tTarget - tNow;
   if (days <= 0 || holdings <= 0 || !Number.isFinite(holdings) || tTarget <= 0) {
     return null;
   }
   const bands = PROJECTED_QUANTILES.map((q) => {
-    const price = quantilePriceUsd(tTarget, q.z) * fx;
+    const price = gold ? quantilePriceXau(tTarget, q.z) : quantilePriceUsd(tTarget, q.z) * fx;
     return {
       z: q.z,
       id: q.id,
