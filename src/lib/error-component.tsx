@@ -4,6 +4,7 @@ import { TriangleAlert } from "lucide-react";
 
 const FALLBACK_MESSAGE = "An unexpected error occurred. Try reloading the page.";
 const RELOAD_KEY = "ol-chunk-reload";
+const RELOAD_WINDOW_MS = 12_000;
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -13,18 +14,39 @@ function errorMessage(error: unknown): string {
 
 function isStaleChunkError(error: unknown): boolean {
   const msg = errorMessage(error);
-  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading chunk \S+ failed/i.test(
+  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading chunk \S+ failed|Unable to preload CSS/i.test(
     msg,
   );
 }
 
+function recentReload(): boolean {
+  if (typeof window === "undefined") return false;
+  const raw = sessionStorage.getItem(RELOAD_KEY);
+  const at = raw ? Number(raw) : 0;
+  return Number.isFinite(at) && Date.now() - at < RELOAD_WINDOW_MS;
+}
+
+function hardReload() {
+  sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  const url = new URL(window.location.href);
+  url.searchParams.set("_ol", String(Date.now()));
+  window.location.replace(url.pathname + url.search + url.hash);
+}
+
 export function ChunkLoadRecovery() {
   useEffect(() => {
+    const raw = sessionStorage.getItem(RELOAD_KEY);
+    const at = raw ? Number(raw) : 0;
+    if (at && Date.now() - at > RELOAD_WINDOW_MS) sessionStorage.removeItem(RELOAD_KEY);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("_ol")) {
+      url.searchParams.delete("_ol");
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    }
     const onPreload = (event: Event) => {
       event.preventDefault();
-      if (sessionStorage.getItem(RELOAD_KEY) === "1") return;
-      sessionStorage.setItem(RELOAD_KEY, "1");
-      window.location.reload();
+      if (recentReload()) return;
+      hardReload();
     };
     window.addEventListener("vite:preloadError", onPreload);
     return () => window.removeEventListener("vite:preloadError", onPreload);
@@ -37,9 +59,8 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
 
   useEffect(() => {
     if (!stale || typeof window === "undefined") return;
-    if (sessionStorage.getItem(RELOAD_KEY) === "1") return;
-    sessionStorage.setItem(RELOAD_KEY, "1");
-    window.location.reload();
+    if (recentReload()) return;
+    hardReload();
   }, [stale]);
 
   return (

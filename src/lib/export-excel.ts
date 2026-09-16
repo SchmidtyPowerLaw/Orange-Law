@@ -1,4 +1,3 @@
-import JSZip from "jszip";
 import { writeSave } from "@/lib/save-file";
 
 export type ExcelExportRow = {
@@ -8,6 +7,16 @@ export type ExcelExportRow = {
   floor: number;
   top: number;
 };
+
+async function loadJSZip() {
+  const g = globalThis as unknown as { setImmediate?: (...args: unknown[]) => unknown };
+  if (typeof g.setImmediate !== "function") {
+    g.setImmediate = (fn: (...args: unknown[]) => void, ...args: unknown[]) =>
+      globalThis.setTimeout(fn, 0, ...args);
+  }
+  const mod = await import("jszip");
+  return mod.default;
+}
 
 function esc(value: string): string {
   return value
@@ -184,6 +193,7 @@ export async function downloadChartExcel(opts: {
 }): Promise<void> {
   if (opts.rows.length === 0) throw new Error("no rows");
   const lastRow = opts.rows.length + 1;
+  const JSZip = await loadJSZip();
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
