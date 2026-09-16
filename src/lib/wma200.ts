@@ -1,10 +1,7 @@
 import { HISTORY, type HistoryRow } from "@/lib/history";
-import { isoFromDay } from "@/lib/powerlaw";
+import { dateFromDay, isoFromDay } from "@/lib/powerlaw";
 
 export const WMA_WEEKS = 200;
-export const WMA_BIN = 0.2;
-export const WMA_TAIL = 2.4;
-const STEPS = 5;
 
 export type WmaDay = {
   t: number;
@@ -23,15 +20,21 @@ export type WmaBin = {
   share: number;
 };
 
-/** Genesis 3 Jan 2009 is Saturday UTC, so Sundays are t ≡ 1 (mod 7). */
-export function isSundayT(t: number): boolean {
-  return ((Math.round(t) % 7) + 7) % 7 === 1;
+/** Lower edges for the 8 bins in the cycle chart (last is 2.2–2.4×). */
+export const CHEAP_EDGES = [0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2] as const;
+
+function isUtcSunday(t: number): boolean {
+  return dateFromDay(Math.round(t)).getUTCDay() === 0;
 }
 
+/**
+ * 200-week MA as of each day: SMA of the last 200 Sunday closes on or
+ * before that day (forward-filled). Same definition as the cycle chart.
+ */
 export function wmaSeries(rows: HistoryRow[] = HISTORY): WmaDay[] {
   const sundays: Array<{ t: number; usd: number }> = [];
   for (const row of rows) {
-    if (row.usd > 0 && isSundayT(row.t)) sundays.push({ t: row.t, usd: row.usd });
+    if (row.usd > 0 && isUtcSunday(row.t)) sundays.push({ t: row.t, usd: row.usd });
   }
   if (sundays.length < WMA_WEEKS) return [];
 
@@ -42,13 +45,12 @@ export function wmaSeries(rows: HistoryRow[] = HISTORY): WmaDay[] {
     if (i >= WMA_WEEKS) run -= sundays[i - WMA_WEEKS]!.usd;
     if (i >= WMA_WEEKS - 1) sundayWma.push({ t: sundays[i]!.t, wma: run / WMA_WEEKS });
   }
-  if (sundayWma.length === 0) return [];
 
   const out: WmaDay[] = [];
   let j = 0;
-  const first = sundayWma[0]!.t;
+  const start = sundayWma[0]!.t;
   for (const row of rows) {
-    if (!(row.usd > 0) || row.t < first) continue;
+    if (!(row.usd > 0) || row.t < start) continue;
     while (j + 1 < sundayWma.length && sundayWma[j + 1]!.t <= row.t) j++;
     const wma = sundayWma[j]!.wma;
     if (!(wma > 0)) continue;
@@ -64,13 +66,13 @@ function binLabel(lo: number, hi: number | null): string {
   return `${lo.toFixed(1)}–${hi.toFixed(1)}×`;
 }
 
-function binIndex(multiple: number, tail: number): number {
-  if (multiple >= tail) return Math.round(tail * STEPS);
-  return Math.max(0, Math.floor(multiple * STEPS + 1e-9));
-}
-
-function loFromIndex(i: number): number {
-  return i / STEPS;
+/** First edge i such that lo[i] <= m < lo[i]+0.2; last bin is ≥ last edge. */
+export function binIndex(multiple: number, edges: readonly number[]): number {
+  if (multiple < edges[0]!) return 0;
+  for (let i = 0; i < edges.length - 1; i++) {
+    if (multiple < edges[i + 1]!) return i;
+  }
+  return edges.length - 1;
 }
 
 export function barColor(lo: number): string {
@@ -109,39 +111,20 @@ export function cheapHistogram(
   const usd = liveUsd > 0 ? liveUsd : last.usd;
   const current = usd / last.wma;
   const multiples = slice.map((d) => d.multiple);
-  const minM = Math.min(...multiples, current);
-  const maxM = Math.max(...multiples, current);
-  const tail =
-    window === "all" ? WMA_TAIL : Math.max(Math.ceil(maxM * STEPS - 1e-9) / STEPS, WMA_BIN);
-  const startI = Math.floor(minM * STEPS + 1e-9);
-  const lastClosedI = Math.round(tail * STEPS) - 1;
-  const counts = new Map<number, number>();
-  for (let i = startI; i <= lastClosedI; i++) counts.set(i, 0);
-  const tailI = Math.round(tail * STEPS);
-  counts.set(tailI, 0);
-  for (const m of multiples) {
-    const i = binIndex(m, tail);
-    counts.set(i, (counts.get(i) ?? 0) + 1);
-  }
+
+  const edges: number[] =
+    window === "365" ? [...CHEAP_EDGES] : [0.6, ...CHEAP_EDGES, 2.4];
+  const counts = edges.map(() => 0);
+  for (const m of multiples) counts[binIndex(m, edges)]! += 1;
+
   const n = slice.length;
-  const bins: WmaBin[] = [];
-  for (let i = startI; i <= lastClosedI; i++) {
-    const lo = loFromIndex(i);
-    const hi = loFromIndex(i + 1);
-    const count = counts.get(i) ?? 0;
-    bins.push({ lo, hi, label: binLabel(lo, hi), count, share: count / n });
-  }
-  const tailCount = counts.get(tailI) ?? 0;
-  if (window === "all" || tailCount > 0 || current >= tail) {
-    const lo = loFromIndex(tailI);
-    bins.push({
-      lo,
-      hi: null,
-      label: binLabel(lo, null),
-      count: tailCount,
-      share: tailCount / n,
-    });
-  }
+  const bins: WmaBin[] = edges.map((lo, i) => {
+    const isLast = i === edges.length - 1;
+    const hi = isLast ? (window === "all" ? null : lo + 0.2) : edges[i + 1]!;
+    const count = counts[i]!;
+    return { lo, hi, label: binLabel(lo, hi), count, share: count / n };
+  });
+
   const below = multiples.filter((m) => m < 1).length;
   const cheaper = multiples.filter((m) => m < current).length;
   return {
