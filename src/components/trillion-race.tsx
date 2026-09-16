@@ -166,8 +166,9 @@ export function TrillionRace() {
         What is the Fastest Horse In the Race?
       </h2>
       <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
-        Clock starts at founding — Genesis for Bitcoin. Each line is market cap from first public
-        print until the first close at $1 trillion. Bitcoin is the orange used above.
+        Clock starts at founding — Genesis for Bitcoin. Bitcoin is daily price times circulating
+        supply. The others are quarterly market cap from the IPO through the first $1 trillion
+        print. Bitcoin is the orange used above.
       </p>
 
       <div
