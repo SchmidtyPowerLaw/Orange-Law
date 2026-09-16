@@ -25,6 +25,7 @@ import {
   lastXau,
   mergeQuote,
   dayOverDay,
+  priceOf,
   rangeWindow,
   sameSpanPoint,
   spanFromIso,
@@ -35,8 +36,9 @@ import { guessDisplayCurrency } from "@/lib/geo-currency";
 import { useLiveTick, withLiveTick } from "@/lib/live-btc";
 import { useSettings } from "@/lib/settings";
 import { DISPLAY_CURRENCY_OPTIONS, formatR2, type Currency } from "@/lib/format";
-import { isoFromDay, periodRSquared, residualZOf, residualZXau } from "@/lib/powerlaw";
-import { chartExportFilename, downloadChartJpeg } from "@/lib/export-chart";
+import { fairPriceUsd, fairPriceXau, isoFromDay, periodRSquared, quantilePriceUsd, quantilePriceXau, residualZOf, residualZXau } from "@/lib/powerlaw";
+import { chartExportFilename, downloadChartJpeg, renderChartJpeg } from "@/lib/export-chart";
+import { downloadChartExcel, excelExportFilename } from "@/lib/export-excel";
 import { usePurchases } from "@/lib/purchase-store";
 import { plotPurchases } from "@/lib/purchases";
 import { plotBuyExtremes, plotEvents, plotFutureEvents, plotHistoryEvents } from "@/lib/events";
@@ -80,7 +82,7 @@ function Home() {
   const [selB, setSelB] = useState<SpanPoint | null>(null);
   const [zoom, setZoom] = useState<{ tMin: number; tMax: number } | null>(null);
   const [historyPlay, setHistoryPlay] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"jpeg" | "xlsx" | null>(null);
 
   const rows = useMemo(() => mergeQuote(HISTORY, quote), [quote]);
 
@@ -240,13 +242,63 @@ function Home() {
     if (exporting) return;
     const node = document.getElementById("orange-law-chart");
     if (!(node instanceof HTMLElement)) return;
-    setExporting(true);
+    setExporting("jpeg");
     try {
       await downloadChartJpeg(node, chartExportFilename(currency, range));
     } catch {
       /* keep the live chart; retry from the button */
     } finally {
-      setExporting(false);
+      setExporting(null);
+    }
+  };
+
+  const exportExcel = async () => {
+    if (exporting || !last || rows.length === 0) return;
+    const node = document.getElementById("orange-law-chart");
+    if (!(node instanceof HTMLElement)) return;
+    setExporting("xlsx");
+    try {
+      const jpeg = await renderChartJpeg(node);
+      const preset = rangeWindow(range, last.t, rows[0].t);
+      const tMin = zoom?.tMin ?? preset.tMin;
+      const tMax = Math.min(last.t, zoom?.tMax ?? last.t);
+      const liveFxNow = lastFx(rows, quote);
+      const liveXauNow = lastXau(rows, quote);
+      const cadScale = liveFxNow > 0 ? liveFxNow : 1;
+      const table = rows
+        .filter((row) => row.t >= tMin && row.t <= tMax)
+        .map((row) => {
+          const price = priceOf(row, currency, liveXauNow, liveFxNow);
+          if (currency === "XAU") {
+            return {
+              iso: isoFromDay(row.t),
+              price,
+              fair: fairPriceXau(row.t),
+              floor: quantilePriceXau(row.t, -2),
+              top: quantilePriceXau(row.t, 2),
+            };
+          }
+          return {
+            iso: isoFromDay(row.t),
+            price,
+            fair: fairPriceUsd(row.t) * cadScale,
+            floor: quantilePriceUsd(row.t, -2) * cadScale,
+            top: quantilePriceUsd(row.t, 2) * cadScale,
+          };
+        })
+        .filter((row) => row.price > 0);
+      const unitLabel = currency === "XAU" ? "GOLD oz" : currency;
+      await downloadChartExcel({
+        rows: table,
+        unitLabel,
+        jpeg: jpeg.bytes,
+        filename: excelExportFilename(currency, range),
+        title: `Orange Law · ${unitLabel}`,
+      });
+    } catch {
+      /* retry from the button */
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -271,14 +323,24 @@ function Home() {
               wrap={false}
               options={DISPLAY_CURRENCY_OPTIONS}
             />
-            <button
-              type="button"
-              onClick={() => void exportGraph()}
-              disabled={exporting}
-              className="h-7 shrink-0 rounded-md border border-sand/30 bg-raised px-2 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-sand transition-colors hover:border-primary hover:text-primary disabled:opacity-60 sm:h-8 sm:px-2.5 sm:text-[10px]"
-            >
-              {exporting ? "Exporting…" : "Export Graph JPEG"}
-            </button>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => void exportGraph()}
+                disabled={Boolean(exporting)}
+                className="h-7 shrink-0 rounded-md border border-sand/30 bg-raised px-2 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-sand transition-colors hover:border-primary hover:text-primary disabled:opacity-60 sm:h-8 sm:px-2.5 sm:text-[10px]"
+              >
+                {exporting === "jpeg" ? "Exporting…" : "Export Graph JPEG"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportExcel()}
+                disabled={Boolean(exporting)}
+                className="h-7 shrink-0 rounded-md border border-sand/30 bg-raised px-2 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-floor transition-colors hover:border-floor hover:text-floor disabled:opacity-60 sm:h-8 sm:px-2.5 sm:text-[10px]"
+              >
+                {exporting === "xlsx" ? "Exporting…" : "Export Excel Data"}
+              </button>
+            </div>
           </div>
         </div>
       </header>

@@ -154,7 +154,13 @@ async function htmlToImage(el: HTMLElement, pixelRatio: number): Promise<HTMLIma
   }
 }
 
-export async function downloadChartJpeg(node: HTMLElement, filename: string): Promise<void> {
+export async function renderChartJpeg(node: HTMLElement): Promise<{
+  bytes: Uint8Array;
+  width: number;
+  height: number;
+  displayW: number;
+  displayH: number;
+}> {
   const svg = node.querySelector("svg");
   if (!(svg instanceof SVGSVGElement)) throw new Error("chart svg missing");
   const w = node.clientWidth;
@@ -197,7 +203,21 @@ export async function downloadChartJpeg(node: HTMLElement, filename: string): Pr
     ctx.restore();
   }
 
-  const url = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((next) => (next ? resolve(next) : reject(new Error("jpeg"))), "image/jpeg", JPEG_QUALITY);
+  });
+  return {
+    bytes: new Uint8Array(await blob.arrayBuffer()),
+    width: pw,
+    height: ph,
+    displayW: w,
+    displayH: h,
+  };
+}
+
+export async function downloadChartJpeg(node: HTMLElement, filename: string): Promise<void> {
+  const jpeg = await renderChartJpeg(node);
+  const url = URL.createObjectURL(new Blob([jpeg.bytes.buffer as ArrayBuffer], { type: "image/jpeg" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -205,6 +225,7 @@ export async function downloadChartJpeg(node: HTMLElement, filename: string): Pr
   document.body.appendChild(a);
   a.click();
   a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function chartExportFilename(currency: string, range: string): string {
