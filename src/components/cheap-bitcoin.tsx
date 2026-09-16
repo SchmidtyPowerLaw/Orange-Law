@@ -65,48 +65,53 @@ export function CheapBitcoin({ usd }: { usd: number }) {
         ))}
       </ul>
 
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-4 min-w-0 overflow-hidden">
         <div
-          className="flex h-[300px] min-w-[520px] items-end gap-1.5 border-b border-border px-1 pt-8 sm:h-[340px] sm:gap-2 md:min-w-0"
+          className="flex h-[260px] w-full min-w-0 items-end gap-px pt-8 sm:h-[340px] sm:gap-2 sm:px-1"
           role="img"
           aria-label="Histogram of Bitcoin price as a multiple of the 200-week moving average"
         >
           {hist.bins.map((bin, i) => {
             const h = (bin.count / maxCount) * 100;
             const current = i === currentI;
+            const short = bin.hi == null ? `≥${bin.lo.toFixed(1)}` : bin.lo.toFixed(1);
             return (
               <div key={bin.label} className="flex h-full min-w-0 flex-1 flex-col items-center">
                 <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-end">
                   {current ? (
-                    <p className="absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold text-primary sm:text-xs">
+                    <p className="absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-primary sm:text-xs">
                       Current {hist.current.toFixed(2)}×
                     </p>
                   ) : null}
                   {bin.count > 0 ? (
-                    <p className="mb-1 text-center font-mono text-[10px] leading-tight text-sand sm:text-xs">
+                    <p className="mb-0.5 text-center font-mono text-[8px] leading-tight text-sand sm:mb-1 sm:text-xs">
                       <span className="block font-semibold">{bin.count}</span>
-                      <span className="block text-[9px] text-muted-foreground sm:text-[10px]">
-                        {(bin.share * 100).toFixed(1)}%
+                      <span className="block text-[7px] text-muted-foreground sm:text-[10px]">
+                        {(bin.share * 100).toFixed(0)}%
                       </span>
                     </p>
                   ) : (
-                    <p className="mb-1 font-mono text-[10px] text-muted-foreground">0</p>
+                    <p className="mb-0.5 font-mono text-[8px] text-muted-foreground sm:text-[10px]">0</p>
                   )}
                   <div
-                    className={cn("w-full rounded-t-sm", current && "ring-2 ring-primary ring-offset-1 ring-offset-card")}
+                    className={cn(
+                      "w-full min-w-0 rounded-t-sm",
+                      current && "ring-2 ring-primary ring-offset-1 ring-offset-card",
+                    )}
                     style={{ height: `${Math.max(h, bin.count > 0 ? 4 : 0)}%`, background: barColor(bin.lo) }}
                     title={`${bin.label}: ${bin.count} days (${(bin.share * 100).toFixed(1)}%)`}
                   />
                 </div>
-                <p className="mt-2 text-center font-mono text-[9px] leading-tight text-muted-foreground sm:text-[11px]">
-                  {bin.label.replace("×", "")}
+                <p className="mt-1 w-full text-center font-mono text-[8px] leading-tight text-muted-foreground sm:mt-2 sm:text-[11px]">
+                  <span className="sm:hidden">{short}</span>
+                  <span className="hidden sm:inline">{bin.label.replace("×", "")}</span>
                 </p>
               </div>
             );
           })}
         </div>
-        <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          Bitcoin price as a multiple of the 200-week moving average
+        <p className="mt-2 text-center text-[10px] text-muted-foreground sm:mt-3 sm:text-[11px]">
+          Bitcoin price ÷ 200-week moving average
         </p>
       </div>
 
