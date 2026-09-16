@@ -280,18 +280,27 @@ export function TrillionRace() {
         </svg>
       </div>
 
-      <ul className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <ul className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {RACE_HORSES.map((horse) => (
           <li
             key={horse.id}
-            className="flex items-baseline justify-between gap-2 rounded-lg bg-raised px-3 py-2"
+            className="flex min-w-0 items-center gap-1.5 rounded-lg bg-raised px-2.5 py-2 sm:gap-2 sm:px-3"
             onPointerEnter={() => setHoverId(horse.id)}
             onPointerLeave={() => setHoverId(null)}
           >
-            <span className="text-sm font-medium" style={{ color: horse.color }}>
+            <span className="min-w-0 truncate text-[13px] font-medium sm:text-sm" style={{ color: horse.color }}>
               {horse.name}
             </span>
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {horse.logo ? (
+              <img
+                src={horse.logo}
+                alt=""
+                width={24}
+                height={24}
+                className="h-5 w-5 shrink-0 object-contain sm:h-6 sm:w-6"
+              />
+            ) : null}
+            <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground sm:text-xs">
               {horse.yearsLabel}
             </span>
           </li>

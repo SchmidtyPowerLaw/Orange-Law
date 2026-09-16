@@ -9,6 +9,7 @@ export type RaceHorse = {
   yearsLabel: string;
   color: string;
   founded: string;
+  logo?: string;
   points: RacePoint[];
 };
 
@@ -81,6 +82,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "12 years",
     color: "#ff5a12",
     founded: "Genesis 2009",
+    logo: "/race/bitcoin.png",
     points: bitcoinPoints(),
   },
   {
@@ -90,6 +92,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "17.4 years",
     color: "#4d8dff",
     founded: "Founded 2004",
+    logo: "/race/meta.png",
     points: fromKnots([
       [8.4, 80 * B],
       [10, 200 * B],
@@ -106,6 +109,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "18.3 years",
     color: "#d8d8d8",
     founded: "Founded 2003",
+    logo: "/race/tesla.png",
     points: fromKnots([
       [7.3, 1.6 * B],
       [10, 15 * B],
@@ -123,6 +127,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "21.4 years",
     color: "#e8c547",
     founded: "Founded 1998",
+    logo: "/race/google.png",
     points: fromKnots([
       [6.3, 23 * B],
       [9, 200 * B],
@@ -157,6 +162,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "30.1 years",
     color: "#76b900",
     founded: "Founded 1993",
+    logo: "/race/nvidia.png",
     points: fromKnots([
       [6.2, 0.6 * B],
       [9, 1.2 * B],
@@ -175,6 +181,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "42.3 years",
     color: "#ff2d2d",
     founded: "Founded 1976",
+    logo: "/race/apple.png",
     points: fromKnots([
       [4.6, 1.8 * B],
       [7, 5 * B],
@@ -195,6 +202,7 @@ export const RACE_HORSES: RaceHorse[] = [
     yearsLabel: "44.1 years",
     color: "#7ec8ff",
     founded: "Founded 1975",
+    logo: "/race/microsoft.png",
     points: fromKnots([
       [11.2, 0.78 * B],
       [15, 8 * B],
