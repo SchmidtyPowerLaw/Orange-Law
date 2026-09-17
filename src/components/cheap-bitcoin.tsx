@@ -10,12 +10,16 @@ import {
 import { cn } from "@/lib/utils";
 
 const WINDOW_OPTIONS: { value: CheapWindow; label: string }[] = [
-  { value: "365", label: "Last 365 days" },
   { value: "all", label: "All time" },
+  { value: "365", label: "Last 365 days" },
 ];
 
+function fmt(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 export function CheapBitcoin({ usd }: { usd: number }) {
-  const [span, setSpan] = useState<CheapWindow>("365");
+  const [span, setSpan] = useState<CheapWindow>("all");
   const hist = useMemo(() => cheapHistogram(span, usd), [span, usd]);
   if (!hist) return null;
 
@@ -74,7 +78,12 @@ export function CheapBitcoin({ usd }: { usd: number }) {
           {hist.bins.map((bin, i) => {
             const h = (bin.count / maxCount) * 100;
             const current = i === currentI;
-            const short = bin.hi == null ? `≥${bin.lo.toFixed(1)}` : bin.lo.toFixed(1);
+            const short =
+              bin.hi == null
+                ? `≥${fmt(bin.lo)}`
+                : bin.hi - bin.lo > 0.21
+                  ? `${fmt(bin.lo)}–${fmt(bin.hi)}`
+                  : fmt(bin.lo);
             return (
               <div key={bin.label} className="flex h-full min-w-0 flex-1 flex-col items-center">
                 <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-end">
@@ -84,14 +93,14 @@ export function CheapBitcoin({ usd }: { usd: number }) {
                     </p>
                   ) : null}
                   {bin.count > 0 ? (
-                    <p className="mb-0.5 text-center font-mono text-[8px] leading-tight text-sand sm:mb-1 sm:text-xs">
+                    <p className="mb-0.5 text-center font-mono text-[7px] leading-tight text-sand sm:mb-1 sm:text-[11px]">
                       <span className="block font-semibold">{bin.count}</span>
-                      <span className="block text-[7px] text-muted-foreground sm:text-[10px]">
-                        {(bin.share * 100).toFixed(0)}%
+                      <span className="block text-[6px] text-muted-foreground sm:text-[10px]">
+                        {(bin.share * 100).toFixed(1)}%
                       </span>
                     </p>
                   ) : (
-                    <p className="mb-0.5 font-mono text-[8px] text-muted-foreground sm:text-[10px]">0</p>
+                    <p className="mb-0.5 font-mono text-[7px] text-muted-foreground sm:text-[10px]">0</p>
                   )}
                   <div
                     className={cn(
@@ -102,7 +111,7 @@ export function CheapBitcoin({ usd }: { usd: number }) {
                     title={`${bin.label}: ${bin.count} days (${(bin.share * 100).toFixed(1)}%)`}
                   />
                 </div>
-                <p className="mt-1 w-full text-center font-mono text-[8px] leading-tight text-muted-foreground sm:mt-2 sm:text-[11px]">
+                <p className="mt-1 w-full text-center font-mono text-[7px] leading-tight text-muted-foreground sm:mt-2 sm:text-[10px]">
                   <span className="sm:hidden">{short}</span>
                   <span className="hidden sm:inline">{bin.label.replace("×", "")}</span>
                 </p>

@@ -20,8 +20,10 @@ export type WmaBin = {
   share: number;
 };
 
-/** Lower edges for the 8 bins in the cycle chart (last is 2.2–2.4×). */
-export const CHEAP_EDGES = [0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2] as const;
+/** Lower edges matching the all-time cycle histogram. Last bin is ≥6.0×. */
+export const CHEAP_EDGES = [
+  0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 4.0, 5.0, 6.0,
+] as const;
 
 function isUtcSunday(t: number): boolean {
   return dateFromDay(Math.round(t)).getUTCDay() === 0;
@@ -79,14 +81,16 @@ export function barColor(lo: number): string {
   if (lo < 1) return "#f07167";
   if (lo < 1.2) return "#e0b020";
   if (lo < 2) return "#5eead4";
-  return "#2ab8a8";
+  if (lo < 4) return "#2ab8a8";
+  return "#5b9cf5";
 }
 
 export const WMA_LEGEND = [
   { lo: 0, label: "Below 1.0×", color: barColor(0.8) },
   { lo: 1, label: "1.0–1.2×", color: barColor(1.0) },
   { lo: 1.2, label: "1.2–2.0×", color: barColor(1.2) },
-  { lo: 2, label: "≥2.0×", color: barColor(2.0) },
+  { lo: 2, label: "2.0–4.0×", color: barColor(2.0) },
+  { lo: 4, label: "≥4.0×", color: barColor(4.0) },
 ] as const;
 
 export function cheapHistogram(
@@ -112,18 +116,28 @@ export function cheapHistogram(
   const current = usd / last.wma;
   const multiples = slice.map((d) => d.multiple);
 
-  const edges: number[] =
-    window === "365" ? [...CHEAP_EDGES] : [0.6, ...CHEAP_EDGES, 2.4];
+  const edges: number[] = [...CHEAP_EDGES];
   const counts = edges.map(() => 0);
   for (const m of multiples) counts[binIndex(m, edges)]! += 1;
 
   const n = slice.length;
-  const bins: WmaBin[] = edges.map((lo, i) => {
+  let bins: WmaBin[] = edges.map((lo, i) => {
     const isLast = i === edges.length - 1;
-    const hi = isLast ? (window === "all" ? null : lo + 0.2) : edges[i + 1]!;
+    const hi = isLast ? null : edges[i + 1]!;
     const count = counts[i]!;
     return { lo, hi, label: binLabel(lo, hi), count, share: count / n };
   });
+  if (window === "365") {
+    const curI = bins.findIndex((b, i, arr) =>
+      i === arr.length - 1 ? current >= b.lo : current >= b.lo && current < (b.hi ?? Infinity),
+    );
+    let first = bins.findIndex((b) => b.count > 0);
+    if (first < 0) first = 0;
+    if (curI >= 0 && curI < first) first = curI;
+    let last = bins.length - 1;
+    while (last > first && bins[last]!.count === 0 && last !== curI) last--;
+    bins = bins.slice(first, last + 1);
+  }
 
   const below = multiples.filter((m) => m < 1).length;
   const cheaper = multiples.filter((m) => m < current).length;
