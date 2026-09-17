@@ -54,6 +54,8 @@ function symbol(currency: Currency): string {
   if (currency === "MXN") return "MX$";
   if (currency === "PHP") return "₱";
   if (currency === "THB") return "฿";
+  if (currency === "JPY") return "¥";
+  if (currency === "CNY") return "CN¥";
   return "$";
 }
 

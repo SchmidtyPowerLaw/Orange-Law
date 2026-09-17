@@ -13,6 +13,8 @@ export const OTHER_CODES = [
   "MXN",
   "PHP",
   "THB",
+  "JPY",
+  "CNY",
 ] as const;
 
 export type OtherCode = (typeof OTHER_CODES)[number];
@@ -37,6 +39,8 @@ export const OTHER_CURRENCY_OPTIONS: readonly OtherCurrencyOption[] = [
   { value: "MXN", label: "MXN", name: "Mexican Peso", hint: "Mexico" },
   { value: "PHP", label: "PHP", name: "Philippine Peso", hint: "Philippines" },
   { value: "THB", label: "THB", name: "Thai Baht", hint: "Thailand" },
+  { value: "JPY", label: "JPY", name: "Japanese Yen", hint: "Japan" },
+  { value: "CNY", label: "CNY", name: "Chinese Yuan", hint: "China" },
 ] as const;
 
 export function isOtherCode(value: unknown): value is OtherCode {
@@ -65,6 +69,8 @@ const TABLES: Record<OtherCode, Array<[number, number]>> = {
   MXN: [],
   PHP: [],
   THB: [],
+  JPY: [],
+  CNY: [],
 };
 
 for (const code of OTHER_CODES) {
@@ -100,6 +106,8 @@ const LAST_FX: Record<OtherCode, number> = {
   MXN: 17.24,
   PHP: 62.75,
   THB: 33.39,
+  JPY: 156.1,
+  CNY: 6.71,
 };
 
 /** Local units per 1 USD on that day (forward-filled). */
