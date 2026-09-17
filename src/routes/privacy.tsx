@@ -43,9 +43,9 @@ function PrivacyPage() {
       <p>
         When the chart loads, your browser requests current Bitcoin, CAD, and
         gold prices from market APIs (including Coinbase, Kraken, and a gold
-        spot feed) and FX from the Bank of Canada. Those providers see a
-        standard web request (IP address, time, user agent) under their own
-        policies.
+        spot feed) and FX from the Bank of Canada and a USD cross-rate feed.
+        Those providers see a standard web request (IP address, time, user
+        agent) under their own policies.
       </p>
 
       <h2>Cookies, ads, and analytics</h2>

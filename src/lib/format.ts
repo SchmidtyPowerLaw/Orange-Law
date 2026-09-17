@@ -1,7 +1,8 @@
 import { dateFromDay } from "@/lib/powerlaw";
+import { isOtherCode, type OtherCode } from "@/lib/fx";
 
 export type FiatCurrency = "USD" | "CAD";
-export type Currency = FiatCurrency | "XAU";
+export type Currency = FiatCurrency | "XAU" | OtherCode;
 
 export const DISPLAY_CURRENCY_OPTIONS: {
   value: Currency;
@@ -24,6 +25,10 @@ export const FIAT_CURRENCY_OPTIONS: {
   { value: "USD", label: "USD", icon: "/usd-bill.png", iconWide: true },
 ];
 
+export function isCurrency(value: unknown): value is Currency {
+  return value === "USD" || value === "CAD" || value === "XAU" || isOtherCode(value);
+}
+
 export function currencyName(currency: Currency): string {
   return currency === "XAU" ? "GOLD" : currency;
 }
@@ -37,6 +42,15 @@ export function currencyMark(currency: Currency): { src: string; wide: boolean }
 function symbol(currency: Currency): string {
   if (currency === "CAD") return "C$";
   if (currency === "XAU") return "";
+  if (currency === "EUR") return "€";
+  if (currency === "TRY") return "₺";
+  if (currency === "VND") return "₫";
+  if (currency === "BRL") return "R$";
+  if (currency === "INR") return "₹";
+  if (currency === "UAH") return "₴";
+  if (currency === "NGN") return "₦";
+  if (currency === "AED") return "AED ";
+  if (currency === "IQD") return "IQD ";
   return "$";
 }
 

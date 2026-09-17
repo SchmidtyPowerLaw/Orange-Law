@@ -54,16 +54,17 @@ export function ModelNotes() {
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
         Fit on daily closes from 17 July 2010 (day 560 after Genesis) through
         February 2026. Floor is the −2σ quantile; a year below −3σ is the
-        published falsification test. CAD is the USD power law at the latest
-        FX print, so those bands stay straight. GOLD is not a dollar
-        conversion: it is Giovanni’s Gold/BTC power law (β = 5.41, σ = 0.330
-        dex) in ounces per bitcoin, using each day’s gold price. Native CAD
-        and gold still feed the live day-over-day change. Compare overlays use
-        Yahoo Finance adjusted closes (S&P 500 total return, XIC.TO for the
-        TSX, CNQ.TO, NVDA, AAPL, COST) converted into the selected unit the
-        same way bitcoin is, then indexed to bitcoin's price at the left
-        edge of the view so each line is the growth of the same starting
-        dollar.
+        published falsification test. Fiat units other than USD (CAD, EUR, TRY,
+        and the rest) convert each day’s dollar close by that day’s FX — the
+        path moves with the currency, it is not a frozen multiplier. GOLD is
+        not a dollar conversion: it is Giovanni’s Gold/BTC power law (β = 5.41,
+        σ = 0.330 dex) in ounces per bitcoin, using each day’s gold price.
+        Native CAD, gold, and live FX still feed the day-over-day change.
+        Compare overlays use Yahoo Finance adjusted closes (S&P 500 total
+        return, XIC.TO for the TSX, CNQ.TO, NVDA, AAPL, COST) converted into
+        the selected unit the same way bitcoin is, then indexed to bitcoin's
+        price at the left edge of the view so each line is the growth of the
+        same starting dollar.
       </p>
       <p className="mt-4 max-w-prose text-xs leading-relaxed text-muted-foreground">
         Model by{" "}

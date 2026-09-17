@@ -14,6 +14,7 @@ export function withLiveTick(quote: LiveQuote, tick: LiveTick): LiveQuote {
     cad,
     xau,
     fx: usd > 0 && cad > 0 ? cad / usd : quote.fx,
+    fxOther: quote.fxOther ?? {},
     asOf: new Date().toISOString(),
   };
 }

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { goldUsdAt, type LiveQuote } from "@/lib/history";
 import { daysSinceGenesis } from "@/lib/powerlaw";
+import { OTHER_CODES, lastHistFx, type OtherCode } from "@/lib/fx";
 
 const UA = { accept: "application/json", "user-agent": "OrangeLaw/1.0" };
 
@@ -185,11 +186,26 @@ function withPrevClose(
     prevUsd: prev,
     prevCad: cadY,
     prevXau: prev > 0 && goldY > 0 ? prev / goldY : 0,
+    fxOther: quote.fxOther ?? {},
   };
 }
 
+async function liveOtherFx(): Promise<Partial<Record<OtherCode, number>>> {
+  const json = (await tryJson("https://open.er-api.com/v6/latest/USD", 4000)) as {
+    rates?: Record<string, number>;
+  } | null;
+  const rates = json?.rates ?? {};
+  const out: Partial<Record<OtherCode, number>> = {};
+  for (const code of OTHER_CODES) {
+    const n = Number(rates[code]);
+    if (Number.isFinite(n) && n > 0) out[code] = n;
+    else out[code] = lastHistFx(code);
+  }
+  return out;
+}
+
 async function assembleQuote(): Promise<LiveQuote> {
-  const [usd, cadNative, boc, xau, prevKline, prevCadNative, goldSession] = await Promise.all([
+  const [usd, cadNative, boc, xau, prevKline, prevCadNative, goldSession, fxOther] = await Promise.all([
     spotUsd(),
     spotCad(),
     tryJson("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=5"),
@@ -197,6 +213,7 @@ async function assembleQuote(): Promise<LiveQuote> {
     btcPrevUtcCloseUsd(),
     btcPrevUtcCloseCad(),
     yahooGoldSession(),
+    liveOtherFx(),
   ]);
   const bocObs =
     (boc as { observations?: Array<{ d?: string; FXUSDCAD?: { v?: string } }> } | null)
@@ -224,6 +241,7 @@ async function assembleQuote(): Promise<LiveQuote> {
       cad,
       fx,
       xau,
+      fxOther,
       asOf: new Date().toISOString(),
       source: "Coinbase/Kraken",
     },

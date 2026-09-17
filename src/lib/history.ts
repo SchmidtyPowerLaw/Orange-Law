@@ -2,6 +2,7 @@ import raw from "@/data/btc-history.json";
 import goldRaw from "@/data/gold-history.json";
 import { daysSinceGenesis, MAX_TARGET_ISO, quantilePriceUsd, tFromIso, type QuantileId } from "@/lib/powerlaw";
 import type { Currency } from "@/lib/format";
+import { fxUsdTo, isOtherCode, type OtherCode } from "@/lib/fx";
 
 export type HistoryRow = {
   t: number;
@@ -75,17 +76,23 @@ export type LiveQuote = {
   prevCad: number;
   /** BTC in troy oz at that previous close. */
   prevXau: number;
+  /** Live local-per-USD rates for extra fiat units. */
+  fxOther: Partial<Record<OtherCode, number>>;
 };
 
 export function priceOf(row: HistoryRow, currency: Currency, liveXau?: number, liveFx?: number): number {
-  if (currency === "CAD") {
-    if (liveFx && liveFx > 0 && row.usd > 0) return row.usd * liveFx;
-    return row.cad;
-  }
   if (currency === "XAU") {
-    // Contemporaneous gold — same ratio Giovanni fits (oz per BTC that day).
     const gold = row.xau > 0 ? row.xau : liveXau && liveXau > 0 ? liveXau : 0;
     return gold > 0 ? row.usd / gold : 0;
+  }
+  if (currency === "USD") return row.usd;
+  if (currency === "CAD") {
+    // That day's CAD print — never freeze today's FX across the whole path.
+    return row.cad > 0 ? row.cad : liveFx && liveFx > 0 && row.usd > 0 ? row.usd * liveFx : 0;
+  }
+  if (isOtherCode(currency)) {
+    const fx = fxUsdTo(currency, row.t, liveFx);
+    return row.usd > 0 && fx > 0 ? row.usd * fx : 0;
   }
   return row.usd;
 }
@@ -157,9 +164,14 @@ export function dayOverDay(
     then = quote && quote.prevUsd > 0 ? quote.prevUsd : prev && prev.usd > 0 ? prev.usd : 0;
   } else if (currency === "CAD") {
     then = quote && quote.prevCad > 0 ? quote.prevCad : prev && prev.cad > 0 ? prev.cad : 0;
-  } else {
+  } else if (currency === "XAU") {
     then = quote && quote.prevXau > 0 ? quote.prevXau : 0;
     if (!(then > 0) && prev && prev.usd > 0 && prev.xau > 0) then = prev.usd / prev.xau;
+  } else if (isOtherCode(currency)) {
+    const prevUsd = quote && quote.prevUsd > 0 ? quote.prevUsd : prev && prev.usd > 0 ? prev.usd : 0;
+    const tPrev = prev ? prev.t : daysSinceGenesis() - 1;
+    const fxY = fxUsdTo(currency, tPrev);
+    then = prevUsd > 0 && fxY > 0 ? prevUsd * fxY : 0;
   }
   if (!(then > 0)) return null;
   return spot / then - 1;
@@ -173,6 +185,7 @@ export function fxOfRow(row: HistoryRow): number {
 export function scaleOfRow(row: HistoryRow, currency: Currency): number {
   if (currency === "CAD") return fxOfRow(row);
   if (currency === "XAU") return row.xau > 0 ? 1 / row.xau : 0;
+  if (isOtherCode(currency)) return fxUsdTo(currency, row.t);
   return 1;
 }
 
@@ -206,6 +219,11 @@ export function lastXau(rows: HistoryRow[], quote: LiveQuote | null): number {
 export function lastScale(rows: HistoryRow[], quote: LiveQuote | null, currency: Currency): number {
   if (currency === "USD") return 1;
   if (currency === "CAD") return lastFx(rows, quote);
+  if (isOtherCode(currency)) {
+    const live = quote?.fxOther?.[currency];
+    if (live && live > 0) return live;
+    return fxUsdTo(currency, rows[rows.length - 1]?.t ?? 0);
+  }
   const xau = lastXau(rows, quote);
   return xau > 0 ? 1 / xau : 0;
 }
@@ -231,8 +249,13 @@ export function scaleAt(
     const gold = row && row.xau > 0 ? row.xau : liveXau;
     return gold > 0 ? 1 / gold : 0;
   }
-  // CAD is a dollar translation. Freeze at the latest FX so the USD law’s
-  // slope and +2σ tops stay straight (gold is its own fitted law instead).
+  const last = rows[rows.length - 1];
+  if (last && t >= last.t && liveFx > 0) return liveFx;
+  if (currency === "CAD") {
+    const row = rowAtT(rows, t);
+    return row ? fxOfRow(row) : liveFx > 0 ? liveFx : 1;
+  }
+  if (isOtherCode(currency)) return fxUsdTo(currency, t, liveFx);
   return liveFx > 0 ? liveFx : 1;
 }
 

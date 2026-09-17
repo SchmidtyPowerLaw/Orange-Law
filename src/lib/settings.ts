@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Currency } from "@/lib/format";
+import { isCurrency } from "@/lib/format";
 import { migrateChartRange, type ChartRange } from "@/lib/history";
 import { defaultTargetIso } from "@/lib/powerlaw";
 import { sanitizeAssetIds, type AssetId } from "@/lib/compare";
@@ -62,12 +63,9 @@ export const useSettings = create<SettingsState>()(
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
-        const currency =
-          p.currency === "CAD" || p.currency === "USD" || p.currency === "XAU"
-            ? p.currency
-            : current.currency;
+        const currency = isCurrency(p.currency) ? p.currency : current.currency;
         const currencyTouched =
-          p.currencyTouched === true || currency === "CAD" || currency === "XAU";
+          p.currencyTouched === true || (currency !== "USD" && isCurrency(currency));
         return {
           ...current,
           ...p,

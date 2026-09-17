@@ -16,6 +16,7 @@ import { PurchaseBar } from "@/components/purchase-bar";
 import { SigmaCaption } from "@/components/sigma-meter";
 import { Button } from "@/components/ui/button";
 import { CompareMenu } from "@/components/compare-menu";
+import { OtherCurrenciesMenu } from "@/components/other-currencies";
 import {
   HISTORY,
   CHART_RANGE_OPTIONS,
@@ -30,6 +31,7 @@ import {
   priceOf,
   rangeWindow,
   sameSpanPoint,
+  scaleAt,
   spanFromIso,
   spanFromRow,
 } from "@/lib/history";
@@ -38,6 +40,7 @@ import { guessDisplayCurrency } from "@/lib/geo-currency";
 import { useLiveTick, withLiveTick } from "@/lib/live-btc";
 import { useSettings } from "@/lib/settings";
 import { DISPLAY_CURRENCY_OPTIONS, formatR2, type Currency } from "@/lib/format";
+import { isOtherCode } from "@/lib/fx";
 import { fairPriceUsd, fairPriceXau, isoFromDay, periodRSquared, quantilePriceUsd, quantilePriceXau, residualZOf, residualZXau } from "@/lib/powerlaw";
 import { chartExportFilename, renderChartJpeg } from "@/lib/export-chart";
 import { downloadChartExcel, excelExportFilename } from "@/lib/export-excel";
@@ -187,7 +190,17 @@ function Home() {
   const liveGold =
     (liveTick && liveTick.xau > 0 ? liveTick.xau : null) ?? (xau > 0 ? xau : 0);
   const spot =
-    currency === "CAD" ? spotCad : currency === "XAU" ? (liveGold > 0 ? spotUsd / liveGold : 0) : spotUsd;
+    currency === "CAD"
+      ? spotCad
+      : currency === "XAU"
+        ? liveGold > 0
+          ? spotUsd / liveGold
+          : 0
+        : isOtherCode(currency)
+          ? spotUsd * (quote?.fxOther?.[currency] && quote.fxOther[currency]! > 0
+              ? quote.fxOther[currency]!
+              : lastScale(rows, quote, currency))
+          : spotUsd;
   const fx = lastScale(rows, quote, currency);
   const liveDayChange = dayOverDay(spot, currency, quote, rows);
   const r2 = useMemo(() => {
@@ -195,23 +208,20 @@ function Home() {
     const preset = rangeWindow(range, last.t, rows[0].t);
     const tMin = zoom?.tMin ?? preset.tMin;
     const tMax = Math.min(last.t, zoom?.tMax ?? last.t);
-    const series =
-      currency === "XAU"
-        ? rows.map((r) => ({ t: r.t, usd: r.xau > 0 ? r.usd / r.xau : 0 }))
-        : rows;
+    const series = rows.map((r) => ({ t: r.t, usd: priceOf(r, currency, xau, fx) }));
     return periodRSquared(series, tMin, tMax);
-  }, [rows, range, last, zoom, currency]);
+  }, [rows, range, last, zoom, currency, xau, fx]);
 
   const purchaseRows = usePurchases((s) => s.rows);
   const buyCurrency = usePurchases((s) => s.currency);
   const showBuys = usePurchases((s) => s.show);
   const buys = useMemo(
-    () => plotPurchases(purchaseRows, rows, buyCurrency, currency, xau, lastFx(rows, quote)),
-    [purchaseRows, rows, buyCurrency, currency, xau, quote],
+    () => plotPurchases(purchaseRows, rows, buyCurrency, currency, xau, fx),
+    [purchaseRows, rows, buyCurrency, currency, xau, fx],
   );
   const events = useMemo(
-    () => plotEvents(rows, currency, xau, lastFx(rows, quote)),
-    [rows, currency, xau, quote],
+    () => plotEvents(rows, currency, xau, fx),
+    [rows, currency, xau, fx],
   );
   const futureEvents = useMemo(() => {
     if (!showFuture || !last) return [];
@@ -221,12 +231,12 @@ function Home() {
   }, [showFuture, last, rows, quote, currency, spot]);
   const chartEvents = showFuture ? [...events, ...futureEvents] : events;
   const buyEvents = useMemo(
-    () => (showBuys ? plotBuyExtremes(purchaseRows, rows, currency, xau, lastFx(rows, quote)) : []),
-    [showBuys, purchaseRows, rows, currency, xau, quote],
+    () => (showBuys ? plotBuyExtremes(purchaseRows, rows, currency, xau, fx) : []),
+    [showBuys, purchaseRows, rows, currency, xau, fx],
   );
   const historyEvents = useMemo(
-    () => plotHistoryEvents(rows, currency, xau, lastFx(rows, quote)),
-    [rows, currency, xau, quote],
+    () => plotHistoryEvents(rows, currency, xau, fx),
+    [rows, currency, xau, fx],
   );
 
   const toggleHistory = () => {
@@ -274,9 +284,8 @@ function Home() {
       const preset = rangeWindow(range, last.t, rows[0].t);
       const tMin = zoom?.tMin ?? preset.tMin;
       const tMax = Math.min(last.t, zoom?.tMax ?? last.t);
-      const liveFxNow = lastFx(rows, quote);
+      const liveFxNow = lastScale(rows, quote, currency);
       const liveXauNow = lastXau(rows, quote);
-      const cadScale = liveFxNow > 0 ? liveFxNow : 1;
       const table = rows
         .filter((row) => row.t >= tMin && row.t <= tMax)
         .map((row) => {
@@ -290,12 +299,13 @@ function Home() {
               top: quantilePriceXau(row.t, 2),
             };
           }
+          const s = scaleAt(rows, row.t, currency, liveFxNow, liveXauNow);
           return {
             iso: isoFromDay(row.t),
             price,
-            fair: fairPriceUsd(row.t) * cadScale,
-            floor: quantilePriceUsd(row.t, -2) * cadScale,
-            top: quantilePriceUsd(row.t, 2) * cadScale,
+            fair: fairPriceUsd(row.t) * s,
+            floor: quantilePriceUsd(row.t, -2) * s,
+            top: quantilePriceUsd(row.t, 2) * s,
           };
         })
         .filter((row) => row.price > 0);
@@ -318,7 +328,7 @@ function Home() {
   return (
     <div className="relative z-10 min-h-dvh overflow-x-hidden pb-16 text-foreground">
       <header className="app-header sticky top-0 z-20 border-b border-border/80 bg-background/70 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 py-2 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:gap-3 sm:px-4 sm:py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 py-2 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:gap-3 sm:px-4 sm:py-3">
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold uppercase leading-none tracking-[0.1em] text-sand sm:text-2xl sm:tracking-[0.14em] md:text-3xl">
               Orange Law
@@ -327,14 +337,17 @@ function Home() {
               Power Law
             </p>
           </div>
-          <Segmented<Currency>
-            ariaLabel="Display currency"
-            value={currency}
-            onChange={setCurrency}
-            size="sm"
-            wrap={false}
-            options={DISPLAY_CURRENCY_OPTIONS}
-          />
+          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+            <Segmented<Currency>
+              ariaLabel="Display currency"
+              value={currency}
+              onChange={setCurrency}
+              size="sm"
+              wrap={false}
+              options={DISPLAY_CURRENCY_OPTIONS}
+            />
+            <OtherCurrenciesMenu value={currency} onChange={setCurrency} />
+          </div>
         </div>
       </header>
 
@@ -443,7 +456,7 @@ function Home() {
           <PowerChart
             rows={rows}
             currency={currency}
-            liveFx={lastFx(rows, quote)}
+            liveFx={fx}
             liveXau={lastXau(rows, quote)}
             range={range}
             zoom={zoom}
@@ -466,7 +479,7 @@ function Home() {
           <RangeReturns
             currency={currency}
             liveXau={xau}
-            liveFx={lastFx(rows, quote)}
+            liveFx={fx}
             selA={selA}
             selB={selB}
             minIso={rows[0] ? isoFromDay(rows[0].t) : "2010-07-17"}
