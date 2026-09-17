@@ -8,6 +8,7 @@ import { ForwardReturns } from "@/components/forward-returns";
 import { NatureLaws } from "@/components/nature-laws";
 import { TrillionRace } from "@/components/trillion-race";
 import { CheapBitcoin } from "@/components/cheap-bitcoin";
+import { CurveFilm } from "@/components/curve-film";
 import { StackProjection } from "@/components/stack-projection";
 import { ModelNotes } from "@/components/model-notes";
 import { SiteFooter } from "@/components/site-footer";
@@ -495,6 +496,8 @@ function Home() {
             spotCad={last?.cad ?? 0}
           />
         </section>
+
+        <CurveFilm />
 
         {last ? (
           <StackProjection
