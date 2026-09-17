@@ -143,6 +143,9 @@ export function NatureLaws() {
   const toggle = (id: NatureLawId) => {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   };
+  const toggleFocus = (id: string) => {
+    setFocusId((cur) => (cur === id ? null : id));
+  };
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -415,13 +418,23 @@ export function NatureLaws() {
         {NATURE_LAWS.map((law) => (
           <li
             key={law.id}
+            role="button"
+            tabIndex={0}
+            aria-pressed={activeId === law.id}
             className={cn(
-              "rounded-lg bg-raised px-3 py-3",
+              "cursor-pointer touch-manipulation rounded-lg bg-raised px-3 py-3 select-none",
               selected.includes(law.id) ? "opacity-100" : "opacity-45",
               activeId === law.id && "shadow-[var(--shadow-border-hover)]",
             )}
             onPointerEnter={() => setHoverId(law.id)}
             onPointerLeave={() => setHoverId(null)}
+            onClick={() => toggleFocus(law.id)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                toggleFocus(law.id);
+              }
+            }}
           >
             <p className="text-xs font-medium uppercase tracking-[0.12em]" style={{ color: law.color }}>
               {law.name}
