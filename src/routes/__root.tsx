@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteAnalytics } from "@/components/site-analytics";
+import { SiteBackdrop } from "@/components/site-backdrop";
 import { ChunkLoadRecovery } from "@/lib/error-component";
 import appCss from "../styles.css?url";
 
@@ -43,6 +44,7 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body className="bg-background text-foreground">
+        <SiteBackdrop />
         <PreviewHostBridge />
         <ChunkLoadRecovery />
         <AuthProvider>

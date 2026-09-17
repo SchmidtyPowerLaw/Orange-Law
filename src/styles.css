@@ -71,29 +71,6 @@
     min-height: 100dvh;
   }
 
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background-image: url("/bitcoin-city.jpg");
-    background-repeat: no-repeat;
-    background-position: center top;
-    background-size: 100% auto;
-    opacity: 0.4;
-    mix-blend-mode: screen;
-  }
-
-  @media (min-width: 768px) {
-    body::before {
-      /* Same top-center framing as mobile: keep the whole city in view, not a zoomed crop. */
-      background-size: min(58vw, 46rem) auto;
-      background-position: center top;
-      opacity: 0.48;
-    }
-  }
-
   h1,
   h2,
   h3 {
@@ -164,6 +141,32 @@
 
 .app-header {
   padding-top: env(safe-area-inset-top);
+}
+
+.site-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.site-bg video {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100%;
+  height: auto;
+  transform: translateX(-50%);
+  opacity: 0.4;
+  mix-blend-mode: screen;
+}
+
+@media (min-width: 768px) {
+  .site-bg video {
+    width: min(58vw, 46rem);
+    opacity: 0.48;
+  }
 }
 
 .tabular {

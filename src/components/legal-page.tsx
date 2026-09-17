@@ -11,7 +11,7 @@ export function LegalPage({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-dvh">
+    <div className="relative z-10 min-h-dvh">
       <header className="app-header sticky top-0 z-20 border-b border-border/80 bg-background/70 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="min-w-0">
