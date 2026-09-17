@@ -10,6 +10,9 @@ export const OTHER_CODES = [
   "INR",
   "UAH",
   "NGN",
+  "MXN",
+  "PHP",
+  "THB",
 ] as const;
 
 export type OtherCode = (typeof OTHER_CODES)[number];
@@ -31,6 +34,9 @@ export const OTHER_CURRENCY_OPTIONS: readonly OtherCurrencyOption[] = [
   { value: "INR", label: "INR", name: "Indian Rupee", hint: "India" },
   { value: "UAH", label: "UAH", name: "Ukrainian Hryvnia", hint: "Ukraine" },
   { value: "NGN", label: "NGN", name: "Nigerian Naira", hint: "Nigeria" },
+  { value: "MXN", label: "MXN", name: "Mexican Peso", hint: "Mexico" },
+  { value: "PHP", label: "PHP", name: "Philippine Peso", hint: "Philippines" },
+  { value: "THB", label: "THB", name: "Thai Baht", hint: "Thailand" },
 ] as const;
 
 export function isOtherCode(value: unknown): value is OtherCode {
@@ -56,6 +62,9 @@ const TABLES: Record<OtherCode, Array<[number, number]>> = {
   INR: [],
   UAH: [],
   NGN: [],
+  MXN: [],
+  PHP: [],
+  THB: [],
 };
 
 for (const code of OTHER_CODES) {
@@ -88,6 +97,9 @@ const LAST_FX: Record<OtherCode, number> = {
   INR: 96,
   UAH: 44.6,
   NGN: 1325,
+  MXN: 17.24,
+  PHP: 62.75,
+  THB: 33.39,
 };
 
 /** Local units per 1 USD on that day (forward-filled). */

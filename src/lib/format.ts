@@ -51,6 +51,9 @@ function symbol(currency: Currency): string {
   if (currency === "NGN") return "₦";
   if (currency === "AED") return "AED ";
   if (currency === "IQD") return "IQD ";
+  if (currency === "MXN") return "MX$";
+  if (currency === "PHP") return "₱";
+  if (currency === "THB") return "฿";
   return "$";
 }
 
