@@ -35,6 +35,45 @@ async function goldUsd(): Promise<number> {
   return 0;
 }
 
+/** Last GC=F print and the previous completed UTC daily close. */
+async function yahooGoldSession(): Promise<{ last: number; prev: number } | null> {
+  const y = (await tryJson(
+    "https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=1d&range=1mo",
+    4000,
+  )) as {
+    chart?: {
+      result?: Array<{
+        timestamp?: number[];
+        indicators?: { quote?: Array<{ close?: Array<number | null> }> };
+      }>;
+    };
+  } | null;
+  const res = y?.chart?.result?.[0];
+  const ts = res?.timestamp;
+  const close = res?.indicators?.quote?.[0]?.close;
+  if (!ts || !close || ts.length === 0) return null;
+  const bars: Array<{ day: string; close: number }> = [];
+  for (let i = 0; i < ts.length; i++) {
+    const c = Number(close[i]);
+    if (!(c > 0)) continue;
+    const day = new Date(ts[i]! * 1000).toISOString().slice(0, 10);
+    const last = bars[bars.length - 1];
+    if (last && last.day === day) last.close = c;
+    else bars.push({ day, close: c });
+  }
+  if (bars.length === 0) return null;
+  const yahooLast = bars[bars.length - 1]!.close;
+  const today = new Date().toISOString().slice(0, 10);
+  let yahooPrev = yahooLast;
+  for (let i = bars.length - 1; i >= 0; i--) {
+    if (bars[i]!.day < today) {
+      yahooPrev = bars[i]!.close;
+      break;
+    }
+  }
+  return { last: yahooLast, prev: yahooPrev };
+}
+
 async function coinbaseSpot(pair: string): Promise<number> {
   const cb = (await tryJson(`https://api.coinbase.com/v2/prices/${pair}/spot`, 4000)) as {
     data?: { amount?: string };
@@ -150,13 +189,14 @@ function withPrevClose(
 }
 
 async function assembleQuote(): Promise<LiveQuote> {
-  const [usd, cadNative, boc, xau, prevKline, prevCadNative] = await Promise.all([
+  const [usd, cadNative, boc, xau, prevKline, prevCadNative, goldSession] = await Promise.all([
     spotUsd(),
     spotCad(),
     tryJson("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=5"),
     goldUsd(),
     btcPrevUtcCloseUsd(),
     btcPrevUtcCloseCad(),
+    yahooGoldSession(),
   ]);
   const bocObs =
     (boc as { observations?: Array<{ d?: string; FXUSDCAD?: { v?: string } }> } | null)
@@ -172,7 +212,12 @@ async function assembleQuote(): Promise<LiveQuote> {
         : 1.38;
   const cad = cadNative > 0 ? cadNative : usd * fx;
   const prevFx = Number.isFinite(bocFxPrev) && bocFxPrev > 0 ? bocFxPrev : fx;
-  const prevGold = goldUsdAt(daysSinceGenesis() - 1);
+  // Apply today's COMEX move onto live spot so a stale gold-history.json
+  // cannot dump several sessions into "today".
+  let prevGold = goldUsdAt(daysSinceGenesis() - 1);
+  if (xau > 0 && goldSession && goldSession.last > 0 && goldSession.prev > 0) {
+    prevGold = xau * (goldSession.prev / goldSession.last);
+  }
   return withPrevClose(
     {
       usd,
