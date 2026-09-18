@@ -21,7 +21,8 @@ function fmt(n: number): string {
 export function CheapBitcoin({ usd }: { usd: number }) {
   const [span, setSpan] = useState<CheapWindow>("all");
   const hist = useMemo(() => cheapHistogram(span, usd), [span, usd]);
-  if (!hist) return null;
+  const allTime = useMemo(() => cheapHistogram("all", usd), [usd]);
+  if (!hist || !allTime) return null;
 
   const maxCount = Math.max(...hist.bins.map((b) => b.count), 1);
   const currentI = hist.bins.findIndex((b, i, arr) => {
@@ -47,12 +48,17 @@ export function CheapBitcoin({ usd }: { usd: number }) {
           wrap={false}
         />
       </div>
-      <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
-        For each day, take that day’s USD close and divide by the 200-week average in effect that
-        day (SMA of the prior 200 Sunday closes). Today is{" "}
-        <span className="font-mono text-primary">{hist.current.toFixed(2)}×</span> — cheaper than{" "}
-        {(hist.cheaperShare * 100).toFixed(0)}% of days here. Closes sat below the 200WMA on{" "}
-        {(hist.belowShare * 100).toFixed(1)}% of days.
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        Bitcoin’s 200-week moving average (200WMA) is the average of weekly closing prices over
+        nearly four years and functions as a slowly rising long-term cost basis and historical cycle
+        floor. When the market price trades near or below that line, Bitcoin has historically been
+        considered cheap and in an accumulation zone at cycle bottoms; when price trades at large
+        multiples above the 200WMA, it has typically been regarded as expensive and late-cycle.
+        Today is{" "}
+        <span className="font-mono text-primary">{allTime.current.toFixed(2)}×</span>
+        {" — "}closes below the 200WMA occur{" "}
+        <span className="font-mono text-foreground">{(allTime.belowShare * 100).toFixed(1)}%</span> of
+        days.
       </p>
       <p className="mt-2 font-mono text-[11px] text-muted-foreground">
         {span === "365" ? "Last 365 days only" : "All days with a 200-week average"} ·{" "}
