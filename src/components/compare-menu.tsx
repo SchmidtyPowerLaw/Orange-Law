@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { COMPARE_ASSETS, type AssetId } from "@/lib/compare";
@@ -12,6 +12,7 @@ type Props = {
 export function CompareMenu({ selected, onToggle }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const active = selected.length > 0;
 
   useEffect(() => {
@@ -22,12 +23,34 @@ export function CompareMenu({ selected, onToggle }: Props) {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") setOpen(false);
     };
+    const onClose = () => setOpen(false);
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onClose);
+    window.addEventListener("scroll", onClose, true);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onClose);
+      window.removeEventListener("scroll", onClose, true);
     };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const btn = wrapRef.current;
+    const menu = menuRef.current;
+    if (!btn || !menu) return;
+    const box = btn.getBoundingClientRect();
+    const pad = 12;
+    const width = Math.min(menu.offsetWidth || 288, window.innerWidth - pad * 2);
+    let left = box.right - width;
+    if (left < pad) left = pad;
+    if (left + width > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - pad - width);
+    menu.style.width = `${width}px`;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${box.bottom + 4}px`;
+    menu.style.right = "auto";
   }, [open]);
 
   return (
@@ -52,9 +75,10 @@ export function CompareMenu({ selected, onToggle }: Props) {
       </Button>
       {open ? (
         <div
+          ref={menuRef}
           role="group"
           aria-label="Comparison assets"
-          className="absolute right-0 z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-lg bg-raised p-2 shadow-[var(--shadow-border)]"
+          className="fixed z-40 w-72 max-w-[calc(100vw-1.5rem)] rounded-lg bg-raised p-2 shadow-[var(--shadow-border)]"
         >
           <p className="px-2 pb-1.5 pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
             Growth of the same starting dollar as bitcoin in this window
