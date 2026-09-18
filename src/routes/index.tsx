@@ -10,6 +10,7 @@ import { TrillionRace } from "@/components/trillion-race";
 import { CheapBitcoin } from "@/components/cheap-bitcoin";
 import { CurveFilm } from "@/components/curve-film";
 import { StackProjection } from "@/components/stack-projection";
+import { TrezorCustody } from "@/components/trezor-custody";
 import { ModelNotes } from "@/components/model-notes";
 import { SiteFooter } from "@/components/site-footer";
 import { Segmented } from "@/components/segmented";
@@ -507,6 +508,8 @@ function Home() {
             currency={currency}
           />
         ) : null}
+
+        <TrezorCustody />
 
         {last ? (
           <ForwardReturns

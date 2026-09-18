@@ -57,6 +57,12 @@ function PrivacyPage() {
         browser. We will not sell a list of our visitors.
       </p>
       <p>
+        Some product links (for example Trezor) are affiliate links. If you
+        buy after clicking, Trezor may pay {SITE_NAME} a commission. The price
+        you pay does not change. That click goes to trezor.io; they may set a
+        cookie (typically 30 days) to credit the sale.
+      </p>
+      <p>
         We measure traffic with Vercel Web Analytics so we know whether the
         chart is used. It is cookieless: it records page path, referrer,
         country, browser, and device class — not your name, and not the
