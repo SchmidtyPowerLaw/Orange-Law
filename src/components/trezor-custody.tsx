@@ -1,6 +1,60 @@
+import { useEffect, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SITE_NAME, TREZOR_AFFILIATE_URL } from "@/lib/site";
+
+const SRC = "/videos/trezor-loop.mp4";
+const POSTER = "/videos/trezor-loop.jpg";
+
+function TrezorLoop() {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = true;
+    v.defaultMuted = true;
+    v.setAttribute("webkit-playsinline", "true");
+    v.setAttribute("playsinline", "true");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      v.pause();
+      return;
+    }
+    const play = () => {
+      v.muted = true;
+      void v.play().catch(() => {});
+    };
+    play();
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) play();
+        else v.pause();
+      },
+      { threshold: 0.15 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      className="pointer-events-none h-auto w-full max-w-[280px] object-contain sm:max-w-[320px]"
+      width={640}
+      height={640}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      poster={POSTER}
+      src={SRC}
+      disablePictureInPicture
+      aria-label="Trezor Safe 5 hardware wallet"
+    />
+  );
+}
 
 export function TrezorCustody() {
   return (
@@ -45,13 +99,7 @@ export function TrezorCustody() {
           className="flex justify-center md:justify-end"
           aria-label="Get a Trezor hardware wallet"
         >
-          <img
-            src="/trezor.png"
-            alt="Trezor Safe 5 hardware wallet"
-            className="h-auto w-full max-w-[280px] object-contain sm:max-w-[320px]"
-            width={640}
-            height={640}
-          />
+          <TrezorLoop />
         </a>
       </div>
     </section>
