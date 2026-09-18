@@ -840,8 +840,7 @@ export function PowerChart({
       PAD.left +
       logLerp(tMin, tMax, Math.min(tMax, Math.max(tMin, t))) * (box.w - PAD.left - PAD.right);
     const visible = rows.filter((r) => r.t >= tMin && r.t <= tMax);
-    let minSpot = visible.reduce((m, r) => Math.min(m, priceOf(r, currency, liveXau, liveFx)), Infinity);
-    let maxSpot = visible.reduce((m, r) => Math.max(m, priceOf(r, currency, liveXau, liveFx)), 0);
+    const maxSpot = visible.reduce((m, r) => Math.max(m, priceOf(r, currency, liveXau, liveFx)), 0);
     const indexed = compareIds.map((id) => {
       const meta = assetMeta(id);
       const points = indexAssetToBitcoin(
@@ -851,12 +850,6 @@ export function PowerChart({
         (t) => priceAtDay(rows, t, currency, liveXau, liveFx),
         (t) => fx(t),
       );
-      for (const pt of points) {
-        if (pt.value > 0) {
-          if (pt.value < minSpot) minSpot = pt.value;
-          if (pt.value > maxSpot) maxSpot = pt.value;
-        }
-      }
       return { id, label: meta.short, color: meta.color, points };
     });
     const qLo = qAt(tMin, currency === "XAU" ? -3.6 : -3.45);

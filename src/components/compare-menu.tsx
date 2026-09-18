@@ -84,23 +84,27 @@ export function CompareMenu({ selected, onToggle }: Props) {
   }, [open]);
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className="relative shrink-0">
       <Button
         type="button"
         variant={active ? "secondary" : "outline"}
         size="sm"
-        className="h-11"
+        className="h-11 w-max shrink-0"
         aria-pressed={active}
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen((v) => !v)}
       >
         Compare to Other Assets
-        {active ? (
-          <span className="rounded-sm bg-primary/20 px-1.5 font-mono text-[10px] text-primary">
-            {selected.length}
-          </span>
-        ) : null}
+        <span
+          className={cn(
+            "inline-flex h-4 min-w-[1.15rem] items-center justify-center rounded-sm px-1 font-mono text-[10px]",
+            active ? "bg-primary/20 text-primary" : "invisible",
+          )}
+          aria-hidden={!active}
+        >
+          {selected.length || 0}
+        </span>
         <ChevronDown className={cn("size-3.5 opacity-70 transition-transform", open && "rotate-180")} />
       </Button>
       {open
