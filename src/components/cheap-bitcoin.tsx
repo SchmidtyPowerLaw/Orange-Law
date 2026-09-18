@@ -75,9 +75,9 @@ export function CheapBitcoin({ usd }: { usd: number }) {
         ))}
       </ul>
 
-      <div className="mt-4 min-w-0 overflow-hidden">
+      <div className="mt-4 min-w-0 overflow-x-hidden">
         <div
-          className="flex h-[240px] w-full min-w-0 items-end gap-px pt-6 sm:h-[320px] sm:gap-2 sm:px-1 sm:pt-7"
+          className="flex h-[240px] w-full min-w-0 items-end gap-px pt-8 sm:h-[320px] sm:gap-2 sm:px-1 sm:pt-10"
           role="img"
           aria-label="Histogram of Bitcoin price as a multiple of the 200-week moving average"
         >
@@ -87,11 +87,13 @@ export function CheapBitcoin({ usd }: { usd: number }) {
             return (
               <div
                 key={bin.label}
-                className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
               >
                 {current ? (
-                  <p className="absolute top-0 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-primary sm:text-xs">
-                    Current {hist.current.toFixed(2)}×
+                  <p className="relative z-10 mb-0.5 h-4 w-full sm:mb-1 sm:h-5">
+                    <span className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold leading-none text-primary sm:text-xs">
+                      Current {hist.current.toFixed(2)}×
+                    </span>
                   </p>
                 ) : null}
                 {bin.count > 0 ? (
