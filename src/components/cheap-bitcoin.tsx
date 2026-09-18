@@ -77,13 +77,50 @@ export function CheapBitcoin({ usd }: { usd: number }) {
 
       <div className="mt-4 min-w-0 overflow-hidden">
         <div
-          className="flex h-[260px] w-full min-w-0 items-end gap-px pt-8 sm:h-[340px] sm:gap-2 sm:px-1"
+          className="flex h-[240px] w-full min-w-0 items-end gap-px pt-6 sm:h-[320px] sm:gap-2 sm:px-1 sm:pt-7"
           role="img"
           aria-label="Histogram of Bitcoin price as a multiple of the 200-week moving average"
         >
           {hist.bins.map((bin, i) => {
             const h = (bin.count / maxCount) * 100;
             const current = i === currentI;
+            return (
+              <div
+                key={bin.label}
+                className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+              >
+                {current ? (
+                  <p className="absolute top-0 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-primary sm:text-xs">
+                    Current {hist.current.toFixed(2)}×
+                  </p>
+                ) : null}
+                {bin.count > 0 ? (
+                  <p className="mb-0.5 text-center font-mono text-[7px] leading-tight text-sand sm:mb-1 sm:text-[11px]">
+                    <span className="block font-semibold">{bin.count}</span>
+                    <span className="block text-[6px] text-muted-foreground sm:text-[10px]">
+                      {(bin.share * 100).toFixed(1)}%
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mb-0.5 font-mono text-[7px] text-muted-foreground sm:text-[10px]">0</p>
+                )}
+                <div
+                  className={cn(
+                    "w-full min-w-0 rounded-t-sm",
+                    current && "ring-2 ring-primary ring-offset-1 ring-offset-card",
+                  )}
+                  style={{
+                    height: `${Math.max(h, bin.count > 0 ? 4 : 0)}%`,
+                    background: barColor(bin.lo),
+                  }}
+                  title={`${bin.label}: ${bin.count} days (${(bin.share * 100).toFixed(1)}%)`}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-1 flex w-full min-w-0 gap-px sm:mt-2 sm:gap-2 sm:px-1">
+          {hist.bins.map((bin) => {
             const short =
               bin.hi == null
                 ? `≥${fmt(bin.lo)}`
@@ -91,37 +128,13 @@ export function CheapBitcoin({ usd }: { usd: number }) {
                   ? `${fmt(bin.lo)}–${fmt(bin.hi)}`
                   : fmt(bin.lo);
             return (
-              <div key={bin.label} className="flex h-full min-w-0 flex-1 flex-col items-center">
-                <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-end">
-                  {current ? (
-                    <p className="absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-primary sm:text-xs">
-                      Current {hist.current.toFixed(2)}×
-                    </p>
-                  ) : null}
-                  {bin.count > 0 ? (
-                    <p className="mb-0.5 text-center font-mono text-[7px] leading-tight text-sand sm:mb-1 sm:text-[11px]">
-                      <span className="block font-semibold">{bin.count}</span>
-                      <span className="block text-[6px] text-muted-foreground sm:text-[10px]">
-                        {(bin.share * 100).toFixed(1)}%
-                      </span>
-                    </p>
-                  ) : (
-                    <p className="mb-0.5 font-mono text-[7px] text-muted-foreground sm:text-[10px]">0</p>
-                  )}
-                  <div
-                    className={cn(
-                      "w-full min-w-0 rounded-t-sm",
-                      current && "ring-2 ring-primary ring-offset-1 ring-offset-card",
-                    )}
-                    style={{ height: `${Math.max(h, bin.count > 0 ? 4 : 0)}%`, background: barColor(bin.lo) }}
-                    title={`${bin.label}: ${bin.count} days (${(bin.share * 100).toFixed(1)}%)`}
-                  />
-                </div>
-                <p className="mt-1 w-full text-center font-mono text-[7px] leading-tight text-muted-foreground sm:mt-2 sm:text-[10px]">
-                  <span className="sm:hidden">{short}</span>
-                  <span className="hidden sm:inline">{bin.label.replace("×", "")}</span>
-                </p>
-              </div>
+              <p
+                key={bin.label}
+                className="flex h-8 min-w-0 flex-1 items-start justify-center text-center font-mono text-[7px] leading-tight text-muted-foreground sm:h-8 sm:text-[10px]"
+              >
+                <span className="sm:hidden">{short}</span>
+                <span className="hidden sm:inline">{bin.label.replace("×", "")}</span>
+              </p>
             );
           })}
         </div>
