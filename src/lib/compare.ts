@@ -1,6 +1,6 @@
 import raw from "@/data/compare-assets.json";
 
-export type AssetId = "spx" | "tsx" | "cnq" | "nvda" | "aapl" | "cost";
+export type AssetId = "spx" | "tsx" | "cnq" | "nvda" | "aapl" | "cost" | "eth" | "xrp";
 
 export type CompareAsset = {
   id: AssetId;
@@ -17,6 +17,8 @@ export const COMPARE_ASSETS: readonly CompareAsset[] = [
   { id: "nvda", label: "NVIDIA", hint: "adj. close", short: "NVDA", color: "var(--color-asset-nvda)" },
   { id: "aapl", label: "Apple", hint: "adj. close", short: "AAPL", color: "var(--color-asset-aapl)" },
   { id: "cost", label: "Costco", hint: "adj. close", short: "COST", color: "var(--color-asset-cost)" },
+  { id: "eth", label: "Ethereum", hint: "USD close", short: "ETH", color: "var(--color-asset-eth)" },
+  { id: "xrp", label: "XRP", hint: "USD close", short: "XRP", color: "var(--color-asset-xrp)" },
 ] as const;
 
 export const ASSET_IDS = COMPARE_ASSETS.map((asset) => asset.id);
@@ -38,6 +40,8 @@ const SERIES: Record<AssetId, AssetPoint[]> = {
   nvda: [],
   aapl: [],
   cost: [],
+  eth: [],
+  xrp: [],
 };
 
 for (const asset of COMPARE_ASSETS) {
