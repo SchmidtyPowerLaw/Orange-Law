@@ -7,6 +7,7 @@ import { RangeReturns } from "@/components/range-returns";
 import { ForwardReturns } from "@/components/forward-returns";
 import { NatureLaws } from "@/components/nature-laws";
 import { TrillionRace } from "@/components/trillion-race";
+import { StocksOrBitcoin } from "@/components/stocks-or-bitcoin";
 import { CheapBitcoin } from "@/components/cheap-bitcoin";
 import { CurveFilm } from "@/components/curve-film";
 import { StackProjection } from "@/components/stack-projection";
@@ -317,7 +318,7 @@ function Home() {
         unitLabel,
         jpeg: jpegBytes,
         filename,
-        title: `Orange Law · ${unitLabel}`,
+        title: `Orange Law \u00b7 ${unitLabel}`,
         handle,
       });
     } catch (err) {
@@ -357,7 +358,7 @@ function Home() {
         <p className="max-w-4xl text-pretty text-sm leading-relaxed text-sand md:text-base md:leading-7">
           Bitcoin is not a corporation racing toward saturation and death; it is a city spreading
           like an epidemic, where users cube with time, value squares with users, and price is simply
-          the network’s age raised to the sixth power.
+          the network\u2019s age raised to the sixth power.
         </p>
         <PriceHero
           price={spot}
@@ -376,13 +377,13 @@ function Home() {
                 <span
                   className="font-mono text-sm font-medium tabular-nums text-floor md:text-base"
                   aria-label={`R squared ${formatR2(r2)}`}
-                  title="Pearson R² of log₁₀ price versus log₁₀ days since Genesis in this window"
+                  title="Pearson R\u00b2 of log\u2081\u2080 price versus log\u2081\u2080 days since Genesis in this window"
                 >
-                  R² {formatR2(r2)}
+                  R\u00b2 {formatR2(r2)}
                 </span>
               </h2>
               <p className="text-xs text-muted-foreground">
-                Scroll or pinch to zoom. Drag to pan. Double-tap clears A–B.
+                Scroll or pinch to zoom. Drag to pan. Double-tap clears A\u2013B.
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-0.5 pt-1">
@@ -392,7 +393,7 @@ function Home() {
                 disabled={Boolean(exporting)}
                 className="font-mono text-[10px] italic leading-tight text-sand/70 underline decoration-sand/25 underline-offset-2 transition-colors hover:text-primary hover:decoration-primary disabled:opacity-50 sm:text-[11px]"
               >
-                {exporting === "jpeg" ? "exporting…" : "export graph JPEG"}
+                {exporting === "jpeg" ? "exporting\u2026" : "export graph JPEG"}
               </button>
               <button
                 type="button"
@@ -400,7 +401,7 @@ function Home() {
                 disabled={Boolean(exporting)}
                 className="font-mono text-[10px] italic leading-tight text-floor/80 underline decoration-floor/30 underline-offset-2 transition-colors hover:text-floor hover:decoration-floor disabled:opacity-50 sm:text-[11px]"
               >
-                {exporting === "xlsx" ? "exporting…" : "export Excel data"}
+                {exporting === "xlsx" ? "exporting\u2026" : "export Excel data"}
               </button>
             </div>
             </div>
@@ -446,7 +447,7 @@ function Home() {
                 size="sm"
                 className="h-11"
                 aria-pressed={historyPlay}
-                title="Fade the path, then redraw Bitcoin’s history"
+                title="Fade the path, then redraw Bitcoin\u2019s history"
                 onClick={toggleHistory}
               >
                 <Disc3 className="size-4" />
@@ -525,6 +526,8 @@ function Home() {
         <NatureLaws />
 
         <TrillionRace />
+
+        <StocksOrBitcoin />
 
         <ModelNotes />
       </main>
