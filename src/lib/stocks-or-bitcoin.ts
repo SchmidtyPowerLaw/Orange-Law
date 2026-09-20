@@ -1,6 +1,6 @@
 import { HISTORY } from "@/lib/history";
 import { assetSeries } from "@/lib/compare";
-import { BETA, DAYS_PER_YEAR, GENESIS_UTC, MS_PER_DAY, isoFromDay } from "@/lib/powerlaw";
+import { BETA, DAYS_PER_YEAR, GENESIS_UTC, MS_PER_DAY, T_MODEL_START, isoFromDay } from "@/lib/powerlaw";
 
 export const BTC_ORANGE = "#ff5a12";
 export const SPX_WHITE = "#f4ead8";
@@ -31,9 +31,9 @@ export function powerLawOneYearReturn(t: number): number {
   return (t + DAYS_PER_YEAR) ** BETA / t ** BETA - 1;
 }
 
-/** Monthly power-law 1y return vs a flat S&P long-run, 2015 → 2070. */
+/** Monthly power-law 1y return vs a flat S&P long-run, July 2010 → 2070. */
 export function diminishingReturnSeries(): VsPoint[] {
-  const start = tFromUtc(Date.UTC(2015, 0, 1));
+  const start = T_MODEL_START;
   const end = tFromUtc(Date.UTC(2070, 0, 1));
   const out: VsPoint[] = [];
   for (let t = start; t <= end; t += 30) {
