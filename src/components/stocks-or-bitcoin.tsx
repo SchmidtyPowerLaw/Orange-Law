@@ -224,21 +224,31 @@ function DualChart({
                 </text>
               </g>
             ))}
-            {shownYears.map((year) => {
-              const t = Math.round((Date.UTC(year, 0, 1) - Date.UTC(2009, 0, 3)) / 86_400_000);
-              if (t < geo.tMin || t > geo.tMax) return null;
+            {shownYears.map((year, i) => {
+              const tRaw = Math.round((Date.UTC(year, 0, 1) - Date.UTC(2009, 0, 3)) / 86_400_000);
+              if (tRaw > geo.tMax) return null;
+              const atLeft = tRaw < geo.tMin;
+              if (atLeft && i !== 0) return null;
+              const t = Math.max(geo.tMin, tRaw);
               const x = geo.xAt(t);
               return (
                 <g key={`x-${year}`}>
-                  <line
-                    x1={x}
-                    x2={x}
-                    y1={pad.top}
-                    y2={box.h - pad.bottom}
-                    stroke="var(--color-border)"
-                    strokeOpacity={0.4}
-                  />
-                  <text x={x} y={box.h - 14} textAnchor="middle" className="chart-tick">
+                  {!atLeft ? (
+                    <line
+                      x1={x}
+                      x2={x}
+                      y1={pad.top}
+                      y2={box.h - pad.bottom}
+                      stroke="var(--color-border)"
+                      strokeOpacity={0.4}
+                    />
+                  ) : null}
+                  <text
+                    x={x}
+                    y={box.h - 14}
+                    textAnchor={atLeft ? "start" : "middle"}
+                    className="chart-tick"
+                  >
                     {year}
                   </text>
                 </g>
@@ -424,7 +434,10 @@ export function StocksOrBitcoin() {
   const startYear = firstDollar ? isoFromDay(firstDollar.t).slice(0, 4) : "2010";
 
   return (
-    <section className="min-w-0 rounded-xl bg-card p-5 shadow-[var(--shadow-border)] md:p-6">
+    <section
+      id="stocks-or-bitcoin"
+      className="min-w-0 rounded-xl bg-card p-5 shadow-[var(--shadow-border)] md:p-6"
+    >
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Equities</p>
       <h2 className="mt-2 font-display text-2xl text-foreground">Stocks or Bitcoin?</h2>
       <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
@@ -460,7 +473,7 @@ export function StocksOrBitcoin() {
         <DualChart
           id="pl-return"
           title="Power-law annualized return"
-          kicker="Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500\u2019s long-run ~10% total return. From the first traded prints in July 2010 through 2070."
+          kicker="Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500\u2019s long-run ~10% total return. From Bitcoin\u2019s first traded prints in 2010 through 2070."
           xLabel="annualized return (log)|year"
           series={RETURN_SERIES}
           yMin={0.05}
@@ -468,7 +481,7 @@ export function StocksOrBitcoin() {
           logY
           formatY={(v) => `${Math.round(v * 100).toLocaleString("en-CA")}%`}
           formatValue={(pt, key) => formatReturnPct(pt[key])}
-          yearTicks={[2011, 2015, 2020, 2025, 2030, 2040, 2050, 2060, 2070]}
+          yearTicks={[2010, 2015, 2020, 2025, 2030, 2040, 2050, 2060, 2070]}
           todayT={todayT}
           markT={CROSS_T}
           markLabel={`meets 10% \u00b7 ${crossIso.slice(0, 4)}`}
@@ -486,7 +499,7 @@ export function StocksOrBitcoin() {
           logY
           formatY={formatAxisMultiple}
           formatValue={(pt, key) => formatMultiple(pt[key])}
-          yearTicks={[2011, 2013, 2015, 2017, 2019, 2021, 2023, 2025]}
+          yearTicks={[2010, 2013, 2015, 2017, 2019, 2021, 2023, 2025]}
           todayT={todayT}
           endLabels
         />
