@@ -63,6 +63,7 @@ function DualChart({
   markT,
   markLabel,
   endLabels,
+  yTickValues,
 }: {
   id: string;
   title: string;
@@ -79,6 +80,7 @@ function DualChart({
   markT?: number;
   markLabel?: string;
   endLabels?: boolean;
+  yTickValues?: number[];
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 800, h: 540 });
@@ -122,6 +124,7 @@ function DualChart({
   }, [series, box, pad.left, pad.right, pad.top, pad.bottom, yMin, yMax, logY]);
 
   const yTicks = useMemo(() => {
+    if (yTickValues?.length) return yTickValues;
     if (logY) {
       const ticks: number[] = [];
       const a = Math.ceil(Math.log10(yMin) - 1e-9);
@@ -133,7 +136,7 @@ function DualChart({
     const ticks: number[] = [];
     for (let v = 0; v <= yMax + 1e-9; v += step) ticks.push(v);
     return ticks;
-  }, [logY, yMin, yMax]);
+  }, [logY, yMin, yMax, yTickValues]);
 
   const shownYears = useMemo(() => {
     if (!compact || yearTicks.length <= 6) return yearTicks;
@@ -456,24 +459,25 @@ export function StocksOrBitcoin() {
       <div className="mt-8 grid gap-10">
         <DualChart
           id="pl-return"
-          title="1 \u00b7 Power-law annualized return"
-          kicker="Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500\u2019s long-run ~10% total return."
-          xLabel="annualized return|year"
+          title="Power-law annualized return"
+          kicker="Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500\u2019s long-run ~10% total return. From the first traded prints in July 2010 through 2070."
+          xLabel="annualized return (log)|year"
           series={RETURN_SERIES}
-          yMin={0}
-          yMax={1.5}
-          logY={false}
-          formatY={(v) => `${Math.round(v * 100)}%`}
+          yMin={0.05}
+          yMax={20}
+          logY
+          formatY={(v) => `${Math.round(v * 100).toLocaleString("en-CA")}%`}
           formatValue={(pt, key) => formatReturnPct(pt[key])}
-          yearTicks={[2015, 2020, 2025, 2030, 2040, 2050, 2060, 2070]}
+          yearTicks={[2011, 2015, 2020, 2025, 2030, 2040, 2050, 2060, 2070]}
           todayT={todayT}
           markT={CROSS_T}
           markLabel={`meets 10% \u00b7 ${crossIso.slice(0, 4)}`}
+          yTickValues={[0.05, 0.1, 0.5, 1, 5, 10, 20]}
         />
 
         <DualChart
           id="dollar-log"
-          title="4 \u00b7 Growth of $1 (log)"
+          title="Growth of $1 (log)"
           kicker={`$1 in bitcoin versus $1 in the S&P 500 total-return index from July 2010. Dividends stay in.`}
           xLabel="multiple of starting $1 (log)|year"
           series={DOLLAR_SERIES}
