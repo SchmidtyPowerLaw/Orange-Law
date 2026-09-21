@@ -3,15 +3,18 @@ import { isoFromDay } from "@/lib/powerlaw";
 import { HISTORY } from "@/lib/history";
 import {
   BTC_ORANGE,
+  CAP_MARKS,
   SPX_WHITE,
   crossoverT,
   diminishingReturnSeries,
   dollarGrowthSeries,
   formatAxisMultiple,
+  formatCapTrillions,
   formatMultiple,
   formatReturnPct,
   nearestPoint,
   powerLawOneYearReturn,
+  type CapMark,
   type VsPoint,
 } from "@/lib/stocks-or-bitcoin";
 import { cn } from "@/lib/utils";
@@ -64,6 +67,7 @@ function DualChart({
   markLabel,
   endLabels,
   yTickValues,
+  marks,
 }: {
   id: string;
   title: string;
@@ -81,6 +85,7 @@ function DualChart({
   markLabel?: string;
   endLabels?: boolean;
   yTickValues?: number[];
+  marks?: CapMark[];
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 800, h: 540 });
@@ -326,6 +331,47 @@ function DualChart({
               filter={`url(#${id}-glow)`}
             />
 
+            {marks?.map((mark) => {
+              if (!geo || mark.t < geo.tMin || mark.t > geo.tMax) return null;
+              const pt = nearestPoint(series, mark.t);
+              if (!pt) return null;
+              const x = geo.xAt(mark.t);
+              const y = geo.yAt(pt.btc);
+              const year = isoFromDay(mark.t).slice(0, 4);
+              const toRight = x < box.w - pad.right - 72;
+              const lift = Math.abs(mark.t - todayT) < 900 ? 32 : 12;
+              return (
+                <g key={mark.id} opacity={focusId === "spx" ? 0.2 : 1}>
+                  <line
+                    x1={x}
+                    x2={x}
+                    y1={y}
+                    y2={box.h - pad.bottom}
+                    stroke={mark.color}
+                    strokeOpacity={0.4}
+                    strokeDasharray="3 4"
+                  />
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={5}
+                    fill={mark.color}
+                    stroke="#050505"
+                    strokeWidth={1.2}
+                  />
+                  <text
+                    x={toRight ? x + 8 : x - 8}
+                    y={y - lift}
+                    textAnchor={toRight ? "start" : "end"}
+                    className="chart-kicker"
+                    style={{ fill: mark.color }}
+                  >
+                    {`${mark.name} ${year}`}
+                  </text>
+                </g>
+              );
+            })}
+
             {endLabels && last ? (
               <>
                 <circle cx={geo.xAt(last.t)} cy={geo.yAt(last.spx)} r={3} fill={SPX_WHITE} />
@@ -399,6 +445,16 @@ function DualChart({
           </p>
         ) : null}
       </div>
+      {marks && marks.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {marks.map((mark) => (
+            <p key={mark.id} className="font-mono text-[11px] tabular-nums" style={{ color: mark.color }}>
+              {mark.name} {isoFromDay(mark.t).slice(0, 4)}
+              <span className="ml-1.5 text-muted-foreground">{formatCapTrillions(mark.capUsd)}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -473,7 +529,7 @@ export function StocksOrBitcoin() {
         <DualChart
           id="pl-return"
           title="Power-law annualized return"
-          kicker={"Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500's long-run ~10% total return. From Bitcoin's first traded prints in 2010 through 2070."}
+          kicker={"Forward one-year return of P ~ t^5.69 versus the S&P 500 long-run ~10% total return. From Bitcoin's first traded prints in 2010 through 2070. Dots mark when power-law market cap matches CAD, gold, and global bonds."}
           xLabel="annualized return (log)|year"
           series={RETURN_SERIES}
           yMin={0.05}
@@ -484,8 +540,9 @@ export function StocksOrBitcoin() {
           yearTicks={[2010, 2015, 2020, 2025, 2030, 2040, 2050, 2060, 2070]}
           todayT={todayT}
           markT={CROSS_T}
-          markLabel={`meets 10% \u00b7 ${crossIso.slice(0, 4)}`}
+          markLabel={`meets 10% ${crossIso.slice(0, 4)}`}
           yTickValues={[0.05, 0.1, 0.5, 1, 5, 10, 20]}
+          marks={CAP_MARKS}
         />
 
         <DualChart
