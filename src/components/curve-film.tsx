@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SRC = "/videos/zoom-out-curve.mp4";
-const POSTER = "/videos/zoom-out-curve.jpg";
+const SRC = "/videos/zoom-out-curve.mp4?v=2";
+const POSTER = "/videos/zoom-out-curve.jpg?v=2";
 const LABEL =
   "Bitcoin users spread like a wave cubed with time. Price grows with those users. Multiply those two laws, and you get the power law that’s held for fifteen years.";
 
