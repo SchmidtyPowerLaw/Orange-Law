@@ -463,8 +463,8 @@ export function StocksOrBitcoin() {
         />
         <Stat
           label={`$1 since ${startYear}`}
-          value={lastDollar ? formatMultiple(lastDollar.btc) : "—"}
-          hint={lastDollar ? `S&P ${formatMultiple(lastDollar.spx)}` : "—"}
+          value={lastDollar ? formatMultiple(lastDollar.btc) : "\u2014"}
+          hint={lastDollar ? `S&P ${formatMultiple(lastDollar.spx)}` : "\u2014"}
           color={BTC_ORANGE}
         />
       </div>
@@ -473,7 +473,7 @@ export function StocksOrBitcoin() {
         <DualChart
           id="pl-return"
           title="Power-law annualized return"
-          kicker="Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500\u2019s long-run ~10% total return. From Bitcoin\u2019s first traded prints in 2010 through 2070."
+          kicker={"Forward one-year return of P \u221d t\u2075\u00b7\u2079 versus the S&P 500's long-run ~10% total return. From Bitcoin's first traded prints in 2010 through 2070."}
           xLabel="annualized return (log)|year"
           series={RETURN_SERIES}
           yMin={0.05}
