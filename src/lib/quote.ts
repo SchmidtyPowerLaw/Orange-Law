@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { goldUsdAt, type LiveQuote } from "@/lib/history";
-import { daysSinceGenesis } from "@/lib/powerlaw";
+import { goldUsdAt, HISTORY, type LiveQuote } from "@/lib/history";
+import { daysSinceGenesis, GENESIS_UTC, isoFromDay, MS_PER_DAY } from "@/lib/powerlaw";
 import { OTHER_CODES, lastHistFx, type OtherCode } from "@/lib/fx";
 
 const UA = { accept: "application/json", "user-agent": "OrangeLaw/1.0" };
@@ -204,8 +204,110 @@ async function liveOtherFx(): Promise<Partial<Record<OtherCode, number>>> {
   return out;
 }
 
+async function coinbaseDailyCloses(startSec: number, endSec: number): Promise<Map<number, number>> {
+  const start = new Date(startSec * 1000).toISOString();
+  const end = new Date(endSec * 1000).toISOString();
+  const candles = (await tryJson(
+    `https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=86400&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+    6000,
+  )) as unknown;
+  const map = new Map<number, number>();
+  if (!Array.isArray(candles)) return map;
+  for (const candle of candles) {
+    if (!Array.isArray(candle)) continue;
+    const sec = Number(candle[0]);
+    const close = Number(candle[4]);
+    if (!(close > 0) || !Number.isFinite(sec)) continue;
+    map.set(Math.round((sec * 1000 - GENESIS_UTC) / MS_PER_DAY), close);
+  }
+  return map;
+}
+
+async function krakenDailyCloses(startSec: number): Promise<Map<number, number>> {
+  const ohlc = (await tryJson(
+    `https://api.kraken.com/0/public/OHLC?pair=XXBTZUSD&interval=1440&since=${startSec}`,
+    6000,
+  )) as { result?: Record<string, unknown> } | null;
+  const rows = ohlc?.result
+    ? Object.values(ohlc.result).find((value) => Array.isArray(value))
+    : null;
+  const map = new Map<number, number>();
+  if (!Array.isArray(rows)) return map;
+  for (const row of rows) {
+    if (!Array.isArray(row)) continue;
+    const sec = Number(row[0]);
+    const close = Number(row[4]);
+    if (!(close > 0) || !Number.isFinite(sec)) continue;
+    map.set(Math.round((sec * 1000 - GENESIS_UTC) / MS_PER_DAY), close);
+  }
+  return map;
+}
+
+/** Completed UTC-day USD closes. Today is excluded — that print stays live. */
+async function usdClosesBetween(startT: number, endT: number): Promise<Map<number, number>> {
+  const map = new Map<number, number>();
+  for (let t = startT; t <= endT; t += 280) {
+    const chunkEnd = Math.min(endT, t + 279);
+    const startSec = Math.floor((GENESIS_UTC + t * MS_PER_DAY) / 1000) - 3600;
+    const endSec = Math.floor((GENESIS_UTC + (chunkEnd + 1) * MS_PER_DAY) / 1000) + 3600;
+    const part = await coinbaseDailyCloses(startSec, endSec);
+    for (const [k, v] of part) map.set(k, v);
+  }
+  if (map.size > 0) return map;
+  const startSec = Math.floor((GENESIS_UTC + startT * MS_PER_DAY) / 1000) - 3600;
+  return krakenDailyCloses(startSec);
+}
+
+async function bocFxFrom(startIso: string): Promise<Array<{ iso: string; fx: number }>> {
+  const json = (await tryJson(
+    `https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?start_date=${startIso}`,
+    6000,
+  )) as { observations?: Array<{ d?: string; FXUSDCAD?: { v?: string } }> } | null;
+  const out: Array<{ iso: string; fx: number }> = [];
+  for (const obs of json?.observations ?? []) {
+    const fx = Number(obs.FXUSDCAD?.v);
+    if (obs.d && Number.isFinite(fx) && fx > 0) out.push({ iso: obs.d, fx });
+  }
+  out.sort((a, b) => (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0));
+  return out;
+}
+
+function fxOnOrBefore(iso: string, series: Array<{ iso: string; fx: number }>, fallback: number): number {
+  let fx = fallback;
+  for (const row of series) {
+    if (row.iso <= iso) fx = row.fx;
+    else break;
+  }
+  return fx;
+}
+
+/** Daily prints the bundled file does not have yet, through yesterday UTC. */
+async function completedGap(): Promise<LiveQuote["gap"]> {
+  const last = HISTORY[HISTORY.length - 1];
+  const today = daysSinceGenesis();
+  if (!last || today <= last.t) return [];
+  const startT = Math.round(last.t) + 1;
+  const endT = today - 1;
+  if (endT < startT) return [];
+  const fallbackFx = last.usd > 0 && last.cad > 0 ? last.cad / last.usd : 1.38;
+  const [usdMap, fxSeries] = await Promise.all([
+    usdClosesBetween(startT, endT),
+    bocFxFrom(isoFromDay(Math.max(0, Math.round(last.t) - 7))),
+  ]);
+  const gap: LiveQuote["gap"] = [];
+  for (let t = startT; t <= endT; t++) {
+    const usdRaw = usdMap.get(t);
+    if (!(usdRaw && usdRaw > 0)) continue;
+    const fx = fxOnOrBefore(isoFromDay(t), fxSeries, fallbackFx);
+    const usd = Math.round(usdRaw * 100) / 100;
+    const cad = Math.round(usd * fx * 100) / 100;
+    gap.push({ t, usd, cad });
+  }
+  return gap;
+}
+
 async function assembleQuote(): Promise<LiveQuote> {
-  const [usd, cadNative, boc, xau, prevKline, prevCadNative, goldSession, fxOther] = await Promise.all([
+  const [usd, cadNative, boc, xau, prevKline, prevCadNative, goldSession, fxOther, gap] = await Promise.all([
     spotUsd(),
     spotCad(),
     tryJson("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=5"),
@@ -214,6 +316,7 @@ async function assembleQuote(): Promise<LiveQuote> {
     btcPrevUtcCloseCad(),
     yahooGoldSession(),
     liveOtherFx(),
+    completedGap().catch(() => [] as LiveQuote["gap"]),
   ]);
   const bocObs =
     (boc as { observations?: Array<{ d?: string; FXUSDCAD?: { v?: string } }> } | null)
@@ -242,6 +345,7 @@ async function assembleQuote(): Promise<LiveQuote> {
       fx,
       xau,
       fxOther,
+      gap,
       asOf: new Date().toISOString(),
       source: "Coinbase/Kraken",
     },

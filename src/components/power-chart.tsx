@@ -881,15 +881,19 @@ export function PowerChart({
     const pricePts: { x: number; y: number; z: number }[] = [];
     let lastX = -20;
     const minDx = compact ? 1.45 : 0.7;
-    for (const row of visible) {
+    const pushPrice = (row: (typeof visible)[number], force = false) => {
       const x = xAt(row.t);
-      if (x - lastX < minDx) continue;
+      if (!force && x - lastX < minDx) return;
       lastX = x;
-      pricePts.push({
-        x,
-        y: yAt(priceOf(row, currency, liveXau, liveFx)),
-        z: zAt(priceOf(row, currency, liveXau, liveFx), row.t),
-      });
+      const px = priceOf(row, currency, liveXau, liveFx);
+      pricePts.push({ x, y: yAt(px), z: zAt(px, row.t) });
+    };
+    for (const row of visible) pushPrice(row);
+    const tail = visible[visible.length - 1];
+    if (tail) {
+      const tailX = xAt(tail.t);
+      const prev = pricePts[pricePts.length - 1];
+      if (!prev || Math.abs(prev.x - tailX) > 0.05) pushPrice(tail, true);
     }
 
     const tHi = Math.min(tNow, tMax);

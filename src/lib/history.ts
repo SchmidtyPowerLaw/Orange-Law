@@ -78,6 +78,11 @@ export type LiveQuote = {
   prevXau: number;
   /** Live local-per-USD rates for extra fiat units. */
   fxOther: Partial<Record<OtherCode, number>>;
+  /**
+   * Completed UTC daily closes after the bundled history file.
+   * Today stays the live quote so the path does not jump a stale file to spot.
+   */
+  gap: Array<{ t: number; usd: number; cad: number }>;
 };
 
 export function priceOf(row: HistoryRow, currency: Currency, liveXau?: number, liveFx?: number): number {
@@ -189,12 +194,36 @@ export function scaleOfRow(row: HistoryRow, currency: Currency): number {
   return 1;
 }
 
+function fillGap(rows: HistoryRow[], gap: LiveQuote["gap"] | undefined): HistoryRow[] {
+  if (!gap || gap.length === 0) return rows;
+  const today = daysSinceGenesis();
+  const lastT = rows.length > 0 ? rows[rows.length - 1].t : -1;
+  const seen = new Set<number>();
+  const extra: HistoryRow[] = [];
+  for (const g of gap) {
+    const t = Math.round(g.t);
+    if (seen.has(t) || t <= lastT || t >= today) continue;
+    if (!(g.usd > 0)) continue;
+    seen.add(t);
+    extra.push({
+      t,
+      usd: g.usd,
+      cad: g.cad > 0 ? g.cad : 0,
+      xau: goldUsdAt(t),
+    });
+  }
+  if (extra.length === 0) return rows;
+  extra.sort((a, b) => a.t - b.t);
+  return rows.concat(extra);
+}
+
 export function mergeQuote(rows: HistoryRow[], quote: LiveQuote | null): HistoryRow[] {
-  if (!quote) return rows;
+  const filled = fillGap(rows, quote?.gap);
+  if (!quote) return filled;
   const t = daysSinceGenesis();
   const next: HistoryRow = { t, usd: quote.usd, cad: quote.cad, xau: quote.xau };
-  if (rows.length === 0) return [next];
-  const copy = rows.slice();
+  if (filled.length === 0) return [next];
+  const copy = filled.slice();
   const last = copy[copy.length - 1];
   if (last.t === t) {
     copy[copy.length - 1] = next;
