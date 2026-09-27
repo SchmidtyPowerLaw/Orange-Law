@@ -432,7 +432,7 @@ function Home() {
                 size="sm"
                 className="h-11"
                 aria-pressed={showFuture}
-                title="Hypothetical path: damped 4.19-year halving eigenmode, PPI/business cycle, 2028 US election"
+                title="Log-periodic path: power law plus three modes (ω, 2ω, 4ω). Not a four-year cycle."
                 onClick={() => {
                   const next = !showFuture;
                   setShowFuture(next);

@@ -1,143 +1,65 @@
-import { GENESIS_UTC, MS_PER_DAY, SIGMA, log10Fair, quantilePriceUsd } from "@/lib/powerlaw";
+import { GENESIS_UTC, MS_PER_DAY, SIGMA, quantilePriceUsd } from "@/lib/powerlaw";
 
 /**
- * Hypothetical residual path around the power-law attractor.
+ * Future path from Perrenod, “Disproving 4-Year Cycle Dominance” (Apr 2026).
  *
- * Santostasi (2026) DMD/SSA: the first eigenmode is the power law (~98.7% of
- * variance); a stable, slightly decaying oscillation at 1,530 days (4.19 y)
- * is the halving clock — peak-to-peak, not a symmetric sine. Real Bitcoin
- * bears are ~12 months peak-to-trough (2018, 2022; 2013–15 was ~14). The
- * oscillator is therefore skewed: ~18 months post-halving to the top, ~12
- * months down, then a grind into the next halving. Amplitude shrinks each
- * era (MVRV tops 5.88 → 4.72 → 3.96 → 2.74). Superposed: a 4-year
- * PPI/business-cycle term (trough with this bear, ~Oct 2026) and a 2028
- * US-election liquidity bump on the post-H5 bull.
+ * The power law is removed first. What is left is not a 4-year sine. The
+ * residual in log10 price is three discrete-scale-invariant modes:
  *
- * This is a scenario, not a forecast. The path is forced through today's
- * residual so it joins the real series without a jump.
+ *   r(u) = d0 + Σ_{m∈{1,2,4}} [a_m cos(m ω u) + b_m sin(m ω u)]
+ *   u = ln t,  t = days since the genesis block.
+ *
+ * ω = 8.74, so λ = e^{2π/ω} ≈ 2.05 (published band ω ≈ 8.6–8.8, λ ≈ 2.0–2.08).
+ * Amplitudes are the least-squares fit of those fixed frequencies to this
+ * chart’s power-law residuals through 8 Apr 2026, the article’s window.
+ * That fit explains ~45% of the residual (the article’s three-mode R² is 0.44)
+ * and crosses back above the power law in early April 2026, then rises.
+ *
+ * The line drawn from today keeps that shape. It starts on the live print
+ * and then moves by the model’s change in residual, so it does not jump
+ * off the price to the model’s absolute level.
  */
 
-export const CYCLE_DAYS = 1530;
-export const PEAK_LAG_DAYS = 540;
-/** Historical peak-to-trough. 2018 and 2022 were ~12 months. */
-const BEAR_DAYS = 365;
-const AMP0 = 2.45;
-const AMP_DECAY = 0.78;
-const TROUGH_FRAC = -0.82;
-const HALVING_FRAC = 0.12;
-const PPI_DAYS = 1461;
-const PPI_AMP = 0.18;
-const ELECTION_AMP = 0.38;
-const ELECTION_WIDTH = 95;
-const MATCH_TAU = 120;
+export const LP_OMEGA = 8.74;
 
-const HALVING_ISO = [
-  "2012-11-28",
-  "2016-07-09",
-  "2020-05-11",
-  "2024-04-20",
-  "2028-04-17",
-  "2032-04-20",
-  "2036-04-22",
-  "2040-04-24",
-] as const;
-
-const HALVING_T = HALVING_ISO.map((iso) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return Math.floor((Date.UTC(y, m - 1, d) - GENESIS_UTC) / MS_PER_DAY);
-});
-
-const ELECTION_T = Math.floor((Date.UTC(2028, 10, 7) - GENESIS_UTC) / MS_PER_DAY);
-const H5_T = HALVING_T[4];
-const NEXT_PEAK_T = H5_T + PEAK_LAG_DAYS;
-/** PPI trough with the bear low — Oct 2026, not mid-2027. */
-const PPI_TROUGH_T = Math.floor((Date.UTC(2026, 9, 1) - GENESIS_UTC) / MS_PER_DAY);
-const PPI_PEAK_T = PPI_TROUGH_T - PPI_DAYS / 2;
+const D0 = 0.0376;
+const MODES: ReadonlyArray<readonly [number, number, number]> = [
+  [1, -0.23452, 0.08885],
+  [2, -0.06692, 0.01685],
+  [4, 0.11768, -0.00113],
+];
 
 export type FuturePoint = { t: number; usd: number; z: number };
 
-function lastHalvingT(t: number): number {
-  let last = HALVING_T[0];
-  for (const h of HALVING_T) {
-    if (h <= t) last = h;
-    else break;
+/** Log10-price residual of the three-mode DSI model, around this chart’s power law. */
+export function logPeriodicResidual(t: number): number {
+  if (!(t > 1)) return 0;
+  const u = Math.log(t);
+  let r = D0;
+  for (const [m, a, b] of MODES) {
+    const phase = m * LP_OMEGA * u;
+    r += a * Math.cos(phase) + b * Math.sin(phase);
   }
-  return last;
+  return r;
 }
 
-function nextHalvingT(t: number): number {
-  for (const h of HALVING_T) {
-    if (h > lastHalvingT(t)) return h;
-  }
-  return lastHalvingT(t) + CYCLE_DAYS;
+export function logPeriodicZ(t: number): number {
+  return logPeriodicResidual(t) / SIGMA;
 }
 
-function eraIndex(t: number): number {
-  let i = 0;
-  for (let k = 0; k < HALVING_T.length; k++) {
-    if (HALVING_T[k] <= t) i = k;
-  }
-  return i;
-}
-
-function smooth(u: number): number {
-  const x = Math.min(1, Math.max(0, u));
-  return x * x * (3 - 2 * x);
-}
-
-function mix(a: number, b: number, u: number): number {
-  return a + (b - a) * smooth(u);
-}
-
-/** +1 at the cycle top, TROUGH_FRAC at the 12-month low, small positive at the next halving. */
-function cycleShape(dsh: number, span: number): number {
-  const peak = PEAK_LAG_DAYS;
-  const trough = peak + BEAR_DAYS;
-  if (dsh <= peak) return mix(HALVING_FRAC, 1, dsh / Math.max(1, peak));
-  if (dsh <= trough) return mix(1, TROUGH_FRAC, (dsh - peak) / BEAR_DAYS);
-  return mix(TROUGH_FRAC, HALVING_FRAC, (dsh - trough) / Math.max(1, span - trough));
-}
-
-function cycleZ(t: number): number {
-  const h = lastHalvingT(t);
-  const span = Math.max(CYCLE_DAYS * 0.85, nextHalvingT(t) - h);
-  const amp = AMP0 * AMP_DECAY ** eraIndex(t);
-  return amp * cycleShape(t - h, span);
-}
-
-function ppiZ(t: number): number {
-  return PPI_AMP * Math.cos(((t - PPI_PEAK_T) / PPI_DAYS) * Math.PI * 2);
-}
-
-function electionZ(t: number): number {
-  const u = (t - ELECTION_T) / ELECTION_WIDTH;
-  return ELECTION_AMP * Math.exp(-0.5 * u * u);
-}
-
-function millionZ(t: number): number {
-  return (6 - log10Fair(t)) / SIGMA;
-}
-
-function freeZ(t: number): number {
-  const base = cycleZ(t) + ppiZ(t) + electionZ(t);
-  const u = (t - NEXT_PEAK_T) / 90;
-  const w = Math.exp(-0.5 * u * u);
-  if (w < 0.02) return base;
-  return base + w * (millionZ(NEXT_PEAK_T) - cycleZ(NEXT_PEAK_T) - ppiZ(NEXT_PEAK_T));
+function joinedZ(t: number, tNow: number, zNow: number): number {
+  return zNow + logPeriodicZ(t) - logPeriodicZ(tNow);
 }
 
 export function projectedUsd(t: number, tNow: number, zNow: number): number {
-  const offset = zNow - freeZ(tNow);
-  const fade = Math.exp(-(Math.max(0, t - tNow)) / MATCH_TAU);
-  const z = Math.min(2.25, Math.max(-2.15, freeZ(t) + offset * fade));
-  return quantilePriceUsd(t, z);
+  return quantilePriceUsd(t, joinedZ(t, tNow, zNow));
 }
 
 export type FutureMark = {
   iso: string;
   t: number;
   label: string;
-  tone: "bull";
+  tone: "bull" | "bear";
   usd: number;
 };
 
@@ -149,53 +71,47 @@ function isoAt(t: number): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Next crest and next trough of the log-periodic residual, within 12 years. */
 export function futureEventMarks(tNow: number, zNow: number): FutureMark[] {
-  const out: FutureMark[] = [];
-  const nextH = HALVING_T.find((h) => h > tNow);
-  if (nextH != null) {
-    out.push({
-      iso: isoAt(nextH),
-      t: nextH,
-      label: "5th halving",
-      tone: "bull",
-      usd: projectedUsd(nextH, tNow, zNow),
-    });
+  if (!(tNow > 1) || !Number.isFinite(zNow)) return [];
+  const horizon = tNow + Math.round(12 * 365.25);
+  const step = 7;
+  let prev = logPeriodicZ(tNow);
+  let prevSlope = 0;
+  const hits: FutureMark[] = [];
+  for (let t = tNow + step; t <= horizon; t += step) {
+    const z = logPeriodicZ(t);
+    const slope = z - prev;
+    if (prevSlope !== 0 && Math.sign(slope) !== Math.sign(prevSlope) && Math.abs(prevSlope) > 1e-6) {
+      const crest = prevSlope > 0;
+      const at = t - step;
+      if (at > tNow + 30) {
+        hits.push({
+          iso: isoAt(at),
+          t: at,
+          label: crest ? "Log-periodic crest" : "Log-periodic trough",
+          tone: crest ? "bull" : "bear",
+          usd: projectedUsd(at, tNow, zNow),
+        });
+      }
+    }
+    prevSlope = slope;
+    prev = z;
+    if (hits.length >= 2) break;
   }
-  if (ELECTION_T > tNow) {
-    out.push({
-      iso: isoAt(ELECTION_T),
-      t: ELECTION_T,
-      label: "US election",
-      tone: "bull",
-      usd: projectedUsd(ELECTION_T, tNow, zNow),
-    });
-  }
-  if (NEXT_PEAK_T > tNow) {
-    out.push({
-      iso: isoAt(NEXT_PEAK_T),
-      t: NEXT_PEAK_T,
-      label: "$1M cycle peak",
-      tone: "bull",
-      usd: projectedUsd(NEXT_PEAK_T, tNow, zNow),
-    });
-  }
-  return out;
+  return hits;
 }
 
 export function futurePricePath(tNow: number, zNow: number, tEnd: number, step = 6): FuturePoint[] {
-  if (!(tEnd > tNow) || tNow <= 0) return [];
-  const offset = zNow - freeZ(tNow);
+  if (!(tEnd > tNow) || !(tNow > 1) || !Number.isFinite(zNow)) return [];
   const out: FuturePoint[] = [];
   for (let t = tNow; t <= tEnd; t += step) {
-    const fade = Math.exp(-(t - tNow) / MATCH_TAU);
-    const z = Math.min(2.25, Math.max(-2.15, freeZ(t) + offset * fade));
+    const z = joinedZ(t, tNow, zNow);
     out.push({ t, z, usd: quantilePriceUsd(t, z) });
   }
   if (out.length === 0 || out[out.length - 1].t < tEnd - 1) {
-    const t = tEnd;
-    const fade = Math.exp(-(t - tNow) / MATCH_TAU);
-    const z = Math.min(2.25, Math.max(-2.15, freeZ(t) + offset * fade));
-    out.push({ t, z, usd: quantilePriceUsd(t, z) });
+    const z = joinedZ(tEnd, tNow, zNow);
+    out.push({ t: tEnd, z, usd: quantilePriceUsd(tEnd, z) });
   }
   return out;
 }
