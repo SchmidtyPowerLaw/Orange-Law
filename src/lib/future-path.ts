@@ -15,9 +15,10 @@ import { GENESIS_UTC, MS_PER_DAY, SIGMA, quantilePriceUsd } from "@/lib/powerlaw
  * That fit explains ~45% of the residual (the article’s three-mode R² is 0.44)
  * and crosses back above the power law in early April 2026, then rises.
  *
- * The line drawn from today keeps that shape. It starts on the live print
- * and then moves by the model’s change in residual, so it does not jump
- * off the price to the model’s absolute level.
+ * The line starts on the live print, then the gap to the model fades. Today's
+ * discount is not frozen into the future — that was shoving a later dip down
+ * onto the −2σ floor. After the fade, the path is the model's own residual,
+ * which stays well above that floor.
  */
 
 export const LP_OMEGA = 8.74;
@@ -47,8 +48,13 @@ export function logPeriodicZ(t: number): number {
   return logPeriodicResidual(t) / SIGMA;
 }
 
+const JOIN_DAYS = 400;
+
 function joinedZ(t: number, tNow: number, zNow: number): number {
-  return zNow + logPeriodicZ(t) - logPeriodicZ(tNow);
+  const model = logPeriodicZ(t);
+  const gap = zNow - logPeriodicZ(tNow);
+  const fade = Math.exp(-Math.max(0, t - tNow) / JOIN_DAYS);
+  return model + gap * fade;
 }
 
 export function projectedUsd(t: number, tNow: number, zNow: number): number {
@@ -76,11 +82,11 @@ export function futureEventMarks(tNow: number, zNow: number): FutureMark[] {
   if (!(tNow > 1) || !Number.isFinite(zNow)) return [];
   const horizon = tNow + Math.round(12 * 365.25);
   const step = 7;
-  let prev = logPeriodicZ(tNow);
+  let prev = joinedZ(tNow, tNow, zNow);
   let prevSlope = 0;
   const hits: FutureMark[] = [];
   for (let t = tNow + step; t <= horizon; t += step) {
-    const z = logPeriodicZ(t);
+    const z = joinedZ(t, tNow, zNow);
     const slope = z - prev;
     if (prevSlope !== 0 && Math.sign(slope) !== Math.sign(prevSlope) && Math.abs(prevSlope) > 1e-6) {
       const crest = prevSlope > 0;
