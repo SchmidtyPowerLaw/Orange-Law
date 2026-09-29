@@ -80,7 +80,7 @@ export function TrezorCustody() {
               <a
                 href={TREZOR_AFFILIATE_URL}
                 target="_blank"
-                rel="sponsored noopener noreferrer"
+                rel="sponsored noopener"
               >
                 Get a Trezor
                 <ArrowUpRight />
@@ -95,7 +95,7 @@ export function TrezorCustody() {
         <a
           href={TREZOR_AFFILIATE_URL}
           target="_blank"
-          rel="sponsored noopener noreferrer"
+          rel="sponsored noopener"
           className="flex justify-center md:justify-end"
           aria-label="Get a Trezor hardware wallet"
         >
