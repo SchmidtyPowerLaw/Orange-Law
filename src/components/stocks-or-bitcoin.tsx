@@ -414,13 +414,73 @@ function DualChart({
                   opacity={focusId === "spx" ? 0.12 : 0.72}
                 />
                 <text
-                  x={geo.xAt(splitT) - 8}
-                  y={geo.yAt(powerLawOneYearReturn(splitT)) - 7}
-                  textAnchor="end"
+                  {...(() => {
+                    const t0 = series[0]!.t;
+                    const t2012 = Math.round((Date.UTC(2012, 0, 1) - Date.UTC(2009, 0, 3)) / 86_400_000);
+                    const t1 = Math.min(Math.max(t2012, t0 + 30), splitT);
+                    const x0 = geo.xAt(t0);
+                    const y0 = geo.yAt(powerLawOneYearReturn(t0));
+                    const x1 = geo.xAt(t1);
+                    const y1 = geo.yAt(powerLawOneYearReturn(t1));
+                    const dx = x1 - x0;
+                    const dy = y1 - y0;
+                    const len = Math.hypot(dx, dy) || 1;
+                    let ang = (Math.atan2(dy, dx) * 180) / Math.PI;
+                    let ux = dx / len;
+                    let uy = dy / len;
+                    if (ang > 90 || ang < -90) {
+                      ang += ang > 0 ? -180 : 180;
+                      ux = -ux;
+                      uy = -uy;
+                    }
+                    const fontPx = compact ? 12 : 15;
+                    const textLen = 16 * fontPx * 0.52;
+                    const gap = fontPx * 0.95;
+                    const along = Math.min(len * 0.12, 8);
+                    const minX = pad.left + 4;
+                    const maxX = box.w - pad.right - 8;
+                    const minY = pad.top + 10;
+                    const maxY = box.h - pad.bottom - 8;
+                    const perps = [
+                      { x: -uy, y: ux },
+                      { x: uy, y: -ux },
+                    ];
+                    let best: { x: number; y: number; score: number } | null = null;
+                    for (const p of perps) {
+                      const ax = x0 + ux * along + p.x * gap;
+                      const ay = y0 + uy * along + p.y * gap;
+                      const ex = ax + ux * textLen;
+                      const ey = ay + uy * textLen;
+                      const inside =
+                        ax >= minX && ax <= maxX && ay >= minY && ay <= maxY &&
+                        ex >= minX && ex <= maxX && ey >= minY && ey <= maxY;
+                      const score = (inside ? 4 : 0) + (p.y > 0 ? 2 : 0) + (p.x > 0 ? 1 : 0);
+                      if (!best || score > best.score) best = { x: ax, y: ay, score };
+                    }
+                    const ax = best!.x;
+                    const ay = Math.min(maxY - 8, best!.y + gap * 0.7);
+                    return {
+                      x: ax,
+                      y: ay,
+                      transform: `rotate(${ang.toFixed(2)} ${ax.toFixed(1)} ${ay.toFixed(1)})`,
+                    };
+                  })()}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                  stroke="#120c08"
+                  strokeWidth={5}
+                  paintOrder="stroke"
+                  strokeLinejoin="round"
                   className="chart-kicker"
-                  style={{ fill: BTC_ORANGE, opacity: focusId === "spx" ? 0.25 : 1 }}
+                  style={{
+                    fill: "#f6f1e6",
+                    fontSize: compact ? 12 : 15,
+                    fontWeight: 700,
+                    letterSpacing: "0.03em",
+                    opacity: focusId === "spx" ? 0.35 : 1,
+                  }}
                 >
-                  Power-law 1-year
+                  Power Law 1 Year
                 </text>
               </>
             ) : null}
@@ -524,7 +584,7 @@ function DualChart({
         {splitT != null ? (
           <p className="flex min-h-11 items-center gap-2 px-1 text-sm" style={{ color: BTC_ORANGE, opacity: 0.7 }}>
             <span className="h-0.5 w-5 rounded-full" style={{ background: BTC_ORANGE, opacity: 0.45 }} />
-            Power-law 1-year, through today
+            Power Law 1 Year, through today
           </p>
         ) : null}
         {active && !hover ? (
