@@ -355,6 +355,34 @@ function DualChart({
               </>
             ) : null}
 
+            {geo && splitT != null ? (
+              <>
+                <path
+                  d={pathOf(
+                    series,
+                    (pt) => (pt.t <= splitT ? powerLawOneYearReturn(pt.t) : null),
+                    geo.xAt,
+                    geo.yAt,
+                  )}
+                  fill="none"
+                  stroke={BTC_ORANGE}
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={focusId === "spx" ? 0.08 : 0.32}
+                />
+                <text
+                  x={geo.xAt(splitT) - 8}
+                  y={geo.yAt(powerLawOneYearReturn(splitT)) - 7}
+                  textAnchor="end"
+                  className="chart-kicker"
+                  style={{ fill: BTC_ORANGE, opacity: focusId === "spx" ? 0.2 : 0.8 }}
+                >
+                  Power-law 1-year
+                </text>
+              </>
+            ) : null}
+
             {geo
               ? (["spx", "btc"] as const).flatMap((key) =>
                   (splitT != null ? (["past", "future"] as const) : (["all"] as const)).map((era) => {
@@ -493,6 +521,12 @@ function DualChart({
             <span style={{ color: item.color }}>{item.name}</span>
           </button>
         ))}
+        {splitT != null ? (
+          <p className="flex min-h-11 items-center gap-2 px-1 text-sm" style={{ color: BTC_ORANGE, opacity: 0.7 }}>
+            <span className="h-0.5 w-5 rounded-full" style={{ background: BTC_ORANGE, opacity: 0.45 }} />
+            Power-law 1-year, through today
+          </p>
+        ) : null}
         {active && !hover ? (
           <p className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
             {isoFromDay(active.t)}
@@ -506,7 +540,9 @@ function DualChart({
         ) : null}
       </div>
       {splitT != null ? (
-        <p className="mt-2 text-xs text-muted-foreground">Solid is history. Dashed is projected.</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Solid is actual history. The faint line is the power-law one-year return through today. Dashed is projected.
+        </p>
       ) : null}
       {marks && marks.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
@@ -600,7 +636,7 @@ export function StocksOrBitcoin() {
         <DualChart
           id="pl-return"
           title="One-year return"
-          kicker="Solid lines are trailing one-year returns through today. Dashed bitcoin is the power-law forward year. Dashed S&P is a 10% assumption. Dots mark when power-law market cap matches CAD, gold, and global bonds."
+          kicker="Solid lines are trailing one-year returns through today. The faint orange line is the smoothed power-law one-year return, also through today. Dashed bitcoin continues that power law. Dashed S&P is a 10% assumption."
           xLabel="annualized return|year"
           series={RETURN_SERIES}
           yMin={-0.9}
