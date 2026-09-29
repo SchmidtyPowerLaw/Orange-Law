@@ -59,8 +59,9 @@ function PrivacyPage() {
       <p>
         Some product links (for example Trezor) are affiliate links. If you
         buy after clicking, Trezor may pay {SITE_NAME} a commission. The price
-        you pay does not change. That click goes to trezor.io; they may set a
-        cookie (typically 30 days) to credit the sale.
+        you pay does not change. The click goes through Trezor’s tracking link
+        and on to the shop; they may set a cookie (typically 30 days) to credit
+        the sale.
       </p>
       <p>
         We measure traffic with Vercel Web Analytics so we know whether the
