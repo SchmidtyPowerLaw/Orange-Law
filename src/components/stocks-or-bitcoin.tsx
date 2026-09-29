@@ -133,6 +133,9 @@ function DualChart({
   const [hover, setHover] = useState<VsPoint | null>(null);
   const [focusId, setFocusId] = useState<SeriesId | null>(null);
   const compact = box.w < 640;
+  const smoothBtc = compact && splitT != null;
+  const plotYMin = smoothBtc ? -0.5 : yMin;
+  const plotYMax = smoothBtc ? 20 : yMax;
   const pad = compact
     ? { top: 28, right: endLabels ? 68 : 14, bottom: 36, left: yScale === "symlog" ? 46 : 44 }
     : { top: 32, right: endLabels ? 86 : 18, bottom: 40, left: yScale === "symlog" ? 58 : 52 };
@@ -157,11 +160,11 @@ function DualChart({
     const xAt = (t: number) =>
       pad.left + linLerp(tMin, tMax, Math.min(tMax, Math.max(tMin, t))) * (box.w - pad.left - pad.right);
     const yAt = (v: number) => {
-      const clamped = Math.min(yMax, Math.max(yMin, v));
+      const clamped = Math.min(plotYMax, Math.max(plotYMin, v));
       let u: number;
       if (yScale === "symlog") {
         const s = (x: number) => Math.sign(x) * Math.log10(1 + Math.abs(x) / 0.1);
-        u = (s(clamped) - s(yMin)) / (s(yMax) - s(yMin));
+        u = (s(clamped) - s(plotYMin)) / (s(plotYMax) - s(plotYMin));
       } else if (logY || yScale === "log") {
         u = logLerp(yMin, yMax, clamped);
       } else {
@@ -174,10 +177,10 @@ function DualChart({
       return tMin + Math.min(1, Math.max(0, u)) * (tMax - tMin);
     };
     return { tMin, tMax, xAt, yAt, tAt };
-  }, [series, box, pad.left, pad.right, pad.top, pad.bottom, yMin, yMax, logY, yScale]);
+  }, [series, box, pad.left, pad.right, pad.top, pad.bottom, plotYMin, plotYMax, logY, yScale]);
 
   const yTicks = useMemo(() => {
-    if (yTickValues?.length) return yTickValues;
+    if (yTickValues?.length) return yTickValues.filter((v) => v >= plotYMin - 1e-9 && v <= plotYMax + 1e-9);
     if (logY) {
       const ticks: number[] = [];
       const a = Math.ceil(Math.log10(yMin) - 1e-9);
@@ -189,7 +192,7 @@ function DualChart({
     const ticks: number[] = [];
     for (let v = 0; v <= yMax + 1e-9; v += step) ticks.push(v);
     return ticks;
-  }, [logY, yMin, yMax, yTickValues]);
+  }, [logY, plotYMin, plotYMax, yTickValues]);
 
   const shownYears = useMemo(() => {
     if (!compact || yearTicks.length <= 6) return yearTicks;
@@ -218,7 +221,11 @@ function DualChart({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{title}</p>
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">{kicker}</p>
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            {smoothBtc
+              ? "On a small screen the orange line is only the smoothed power-law one-year return, solid through today and dashed after. The S&P line is unchanged."
+              : kicker}
+          </p>
         </div>
       </div>
       <div
@@ -232,7 +239,7 @@ function DualChart({
           >
             <p className="font-mono text-[10px] tabular-nums text-muted-foreground">{isoFromDay(hover.t)}</p>
             <p className="mt-0.5 font-mono text-xs tabular-nums" style={{ color: BTC_ORANGE }}>
-              BTC {formatValue(hover, "btc")}
+              BTC {smoothBtc ? formatReturnPct(powerLawOneYearReturn(hover.t)) : formatValue(hover, "btc")}
             </p>
             <p className="font-mono text-xs tabular-nums" style={{ color: SPX_WHITE }}>
               SPX {formatValue(hover, "spx")}
@@ -364,7 +371,7 @@ function DualChart({
                         if (era === "past" && splitT != null && pt.t > splitT) return null;
                         if (era === "future" && splitT != null && pt.t < splitT) return null;
                         const v =
-                          era === "future" && key === "btc"
+                          key === "btc" && (smoothBtc || era === "future")
                             ? powerLawOneYearReturn(pt.t)
                             : era === "future" && key === "spx" && futureFlat
                               ? SPX_LONG_RUN
@@ -397,7 +404,7 @@ function DualChart({
                 )
               : null}
 
-            {geo && splitT != null ? (
+            {geo && splitT != null && !smoothBtc ? (
               <>
                 <path
                   d={pathOf(
@@ -551,7 +558,7 @@ function DualChart({
                   stroke="var(--color-sand)"
                   strokeOpacity={0.35}
                 />
-                <circle cx={geo.xAt(hover.t)} cy={geo.yAt(hover.btc)} r={4} fill={BTC_ORANGE} />
+                <circle cx={geo.xAt(hover.t)} cy={geo.yAt(smoothBtc ? powerLawOneYearReturn(hover.t) : hover.btc)} r={4} fill={BTC_ORANGE} />
                 {Number.isFinite(hover.spx) ? (
                   <circle cx={geo.xAt(hover.t)} cy={geo.yAt(hover.spx)} r={3.4} fill={SPX_WHITE} />
                 ) : null}
@@ -581,7 +588,7 @@ function DualChart({
             <span style={{ color: item.color }}>{item.name}</span>
           </button>
         ))}
-        {splitT != null ? (
+        {splitT != null && !smoothBtc ? (
           <p className="flex min-h-11 items-center gap-2 px-1 text-sm" style={{ color: BTC_ORANGE, opacity: 0.7 }}>
             <span className="h-0.5 w-5 rounded-full" style={{ background: BTC_ORANGE, opacity: 0.45 }} />
             Power Law 1 Year, through today
@@ -591,7 +598,7 @@ function DualChart({
           <p className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
             {isoFromDay(active.t)}
             <span className="ml-2" style={{ color: BTC_ORANGE }}>
-              {formatValue(active, "btc")}
+              {smoothBtc ? formatReturnPct(powerLawOneYearReturn(active.t)) : formatValue(active, "btc")}
             </span>
             <span className="ml-2" style={{ color: SPX_WHITE }}>
               {formatValue(active, "spx")}
@@ -601,7 +608,9 @@ function DualChart({
       </div>
       {splitT != null ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Solid is actual history. The faint line is the power-law one-year return through today. Dashed is projected.
+          {smoothBtc
+            ? "Orange is the smoothed power-law one-year return. Solid through today, dashed after. White is the S&P 500."
+            : "Solid is actual history. The faint line is the power-law one-year return through today. Dashed is projected."}
         </p>
       ) : null}
       {marks && marks.length > 0 ? (
@@ -659,9 +668,15 @@ export function StocksOrBitcoin() {
       <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
         The power law is a diminishing-return curve: the same exponent on a larger age each year, so
         the implied one-year gain shrinks. Today that path still prices a{" "}
-        <span className="text-sand">{formatReturnPct(todayRet)}</span> year. On the chart, both
-        lines are actual trailing one-year returns through today. After today bitcoin follows the
-        power law and the S&P follows 10%, both dashed.
+        <span className="text-sand">{formatReturnPct(todayRet)}</span> year.{" "}
+        <span className="md:hidden">
+          On a phone the orange line is only that smoothed curve, so it stays readable. The S&P line is
+          still the actual trailing return through today, then 10% dashed.
+        </span>
+        <span className="hidden md:inline">
+          On the chart, both lines are actual trailing one-year returns through today. After today bitcoin
+          follows the power law and the S&P follows 10%, both dashed.
+        </span>{" "}
         Drag either chart. Tap a name to isolate the line.
       </p>
 
