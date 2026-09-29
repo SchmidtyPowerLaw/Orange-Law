@@ -355,34 +355,6 @@ function DualChart({
               </>
             ) : null}
 
-            {geo && splitT != null ? (
-              <>
-                <path
-                  d={pathOf(
-                    series,
-                    (pt) => (pt.t <= splitT ? powerLawOneYearReturn(pt.t) : null),
-                    geo.xAt,
-                    geo.yAt,
-                  )}
-                  fill="none"
-                  stroke={BTC_ORANGE}
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity={focusId === "spx" ? 0.08 : 0.32}
-                />
-                <text
-                  x={geo.xAt(splitT) - 8}
-                  y={geo.yAt(powerLawOneYearReturn(splitT)) - 7}
-                  textAnchor="end"
-                  className="chart-kicker"
-                  style={{ fill: BTC_ORANGE, opacity: focusId === "spx" ? 0.2 : 0.8 }}
-                >
-                  Power-law 1-year
-                </text>
-              </>
-            ) : null}
-
             {geo
               ? (["spx", "btc"] as const).flatMap((key) =>
                   (splitT != null ? (["past", "future"] as const) : (["all"] as const)).map((era) => {
@@ -424,6 +396,34 @@ function DualChart({
                   }),
                 )
               : null}
+
+            {geo && splitT != null ? (
+              <>
+                <path
+                  d={pathOf(
+                    series,
+                    (pt) => (pt.t <= splitT ? powerLawOneYearReturn(pt.t) : null),
+                    geo.xAt,
+                    geo.yAt,
+                  )}
+                  fill="none"
+                  stroke={BTC_ORANGE}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={focusId === "spx" ? 0.12 : 0.72}
+                />
+                <text
+                  x={geo.xAt(splitT) - 8}
+                  y={geo.yAt(powerLawOneYearReturn(splitT)) - 7}
+                  textAnchor="end"
+                  className="chart-kicker"
+                  style={{ fill: BTC_ORANGE, opacity: focusId === "spx" ? 0.25 : 1 }}
+                >
+                  Power-law 1-year
+                </text>
+              </>
+            ) : null}
 
             {marks?.map((mark) => {
               if (!geo || mark.t < geo.tMin || mark.t > geo.tMax) return null;
