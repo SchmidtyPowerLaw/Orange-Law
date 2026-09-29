@@ -81,9 +81,9 @@ export function tWhenMcapEquals(targetUsd: number): number {
 
 export const CAP_MARKS: CapMark[] = (
   [
-    { id: "cad" as const, name: "CAD", color: CAD_COLOR, capUsd: CAD_SYSTEM_USD },
-    { id: "gold" as const, name: "Gold", color: GOLD_COLOR, capUsd: GOLD_STOCK_USD },
-    { id: "bonds" as const, name: "Bonds", color: BONDS_COLOR, capUsd: GLOBAL_BONDS_USD },
+    { id: "cad" as const, name: "CAD Parity", color: CAD_COLOR, capUsd: CAD_SYSTEM_USD },
+    { id: "gold" as const, name: "Gold Parity", color: GOLD_COLOR, capUsd: GOLD_STOCK_USD },
+    { id: "bonds" as const, name: "Bond Parity", color: BONDS_COLOR, capUsd: GLOBAL_BONDS_USD },
   ] as const
 ).map((row) => ({ ...row, t: tWhenMcapEquals(row.capUsd) }));
 
@@ -93,20 +93,71 @@ export function powerLawOneYearReturn(t: number): number {
   return (t + DAYS_PER_YEAR) ** BETA / t ** BETA - 1;
 }
 
-/** Monthly power-law 1y return vs a flat S&P long-run, July 2010 to 2070. */
-export function diminishingReturnSeries(): VsPoint[] {
+function trailingReturn(series: { t: number; usd: number }[], t: number): number | null {
+  const now = lookup(series, t);
+  const prev = lookup(series, Math.round(t - DAYS_PER_YEAR));
+  if (!now || !prev) return null;
+  return now / prev - 1;
+}
+
+/** Trailing one-year S&P 500 total return at day t, or null if a year of history is missing. */
+export function spxTrailingReturn(t: number): number | null {
+  return trailingReturn(assetSeries("spx"), t);
+}
+
+/** Latest S&P print that has a full prior year, and that trailing one-year total return. */
+export function latestSpxTrailing(): { t: number; ret: number } | null {
+  const spx = assetSeries("spx");
+  const last = spx[spx.length - 1];
+  if (!last) return null;
+  const ret = trailingReturn(spx, last.t);
+  if (ret == null || !Number.isFinite(ret)) return null;
+  return { t: last.t, ret };
+}
+
+/**
+ * Monthly one-year returns, July 2010 to 2070.
+ * Through today both series are trailing one-year total returns.
+ * After today bitcoin is the power-law forward year and the S&P is 10%.
+ */
+export function diminishingReturnSeries(presentT?: number): VsPoint[] {
+  const todayT = presentT ?? HISTORY[HISTORY.length - 1]?.t ?? tFromUtc(Date.now());
+  const spx = assetSeries("spx");
+  const btc = HISTORY.filter((row) => row.usd > 0);
+  const spxLast = spx[spx.length - 1]?.t ?? todayT;
+  const btcLast = btc[btc.length - 1]?.t ?? todayT;
   const start = T_MODEL_START;
   const end = tFromUtc(Date.UTC(2070, 0, 1));
   const out: VsPoint[] = [];
-  for (let t = start; t <= end; t += 30) {
+  const push = (t: number) => {
     const iso = isoFromDay(t);
+    const spxRet = t <= spxLast ? trailingReturn(spx, t) : t > todayT ? SPX_LONG_RUN : null;
+    const btcRet = t <= btcLast ? trailingReturn(btc, t) : t > todayT ? powerLawOneYearReturn(t) : null;
     out.push({
       t,
       year: Number(iso.slice(0, 4)) + (Number(iso.slice(5, 7)) - 1) / 12,
-      btc: powerLawOneYearReturn(t),
-      spx: SPX_LONG_RUN,
+      btc: btcRet != null && Number.isFinite(btcRet) ? btcRet : Number.NaN,
+      spx: spxRet != null && Number.isFinite(spxRet) ? spxRet : Number.NaN,
     });
+  };
+  let markedToday = false;
+  let markedSpx = false;
+  for (let t = start; t <= end; t += 30) {
+    if (!markedSpx && t > spxLast) {
+      push(spxLast);
+      markedSpx = true;
+      if (spxLast === todayT) markedToday = true;
+    }
+    if (!markedToday && t > todayT) {
+      push(todayT);
+      markedToday = true;
+    }
+    if (t === todayT) markedToday = true;
+    if (t === spxLast) markedSpx = true;
+    push(t);
   }
+  if (!markedSpx) push(spxLast);
+  if (!markedToday) push(todayT);
   return out;
 }
 

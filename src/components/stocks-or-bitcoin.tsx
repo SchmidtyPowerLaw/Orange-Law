@@ -4,6 +4,7 @@ import { HISTORY } from "@/lib/history";
 import {
   BTC_ORANGE,
   CAP_MARKS,
+  SPX_LONG_RUN,
   SPX_WHITE,
   crossoverT,
   diminishingReturnSeries,
@@ -12,6 +13,7 @@ import {
   formatCapTrillions,
   formatMultiple,
   formatReturnPct,
+  latestSpxTrailing,
   nearestPoint,
   powerLawOneYearReturn,
   type CapMark,
@@ -35,19 +37,50 @@ function linLerp(a: number, b: number, x: number) {
 
 function pathOf(
   points: VsPoint[],
-  key: SeriesId,
+  valueOf: (pt: VsPoint) => number | null,
   xAt: (t: number) => number,
   yAt: (v: number) => number,
 ): string {
   let d = "";
   for (const pt of points) {
-    const v = pt[key];
-    if (!(v > 0)) continue;
+    const v = valueOf(pt);
+    if (v == null || !Number.isFinite(v)) continue;
     const x = xAt(pt.t);
     const y = yAt(v);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     d += d ? ` L ${x.toFixed(1)} ${y.toFixed(1)}` : `M ${x.toFixed(1)} ${y.toFixed(1)}`;
   }
   return d;
+}
+
+/** Sideways label that reads up the page, sitting along a vertical rule. */
+function VerticalRuleLabel({
+  x,
+  y,
+  fill,
+  children,
+  side = "left",
+}: {
+  x: number;
+  y: number;
+  fill: string;
+  children: string;
+  side?: "left" | "right";
+}) {
+  const tx = x + (side === "left" ? -8 : 8);
+  return (
+    <text
+      x={tx}
+      y={y}
+      transform={`rotate(-90 ${tx} ${y})`}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      className="chart-kicker"
+      style={{ fill }}
+    >
+      {children}
+    </text>
+  );
 }
 
 function DualChart({
@@ -68,6 +101,9 @@ function DualChart({
   endLabels,
   yTickValues,
   marks,
+  splitT,
+  futureFlat,
+  yScale = "linear",
 }: {
   id: string;
   title: string;
@@ -86,6 +122,11 @@ function DualChart({
   endLabels?: boolean;
   yTickValues?: number[];
   marks?: CapMark[];
+  /** Draw t > splitT dashed. The boundary point is included in both strokes. */
+  splitT?: number;
+  /** Future S&P values are the long-run 10%, not the stored point. */
+  futureFlat?: boolean;
+  yScale?: "linear" | "log" | "symlog";
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 800, h: 540 });
@@ -93,8 +134,8 @@ function DualChart({
   const [focusId, setFocusId] = useState<SeriesId | null>(null);
   const compact = box.w < 640;
   const pad = compact
-    ? { top: 28, right: endLabels ? 68 : 14, bottom: 36, left: 44 }
-    : { top: 32, right: endLabels ? 86 : 18, bottom: 40, left: 52 };
+    ? { top: 28, right: endLabels ? 68 : 14, bottom: 36, left: yScale === "symlog" ? 46 : 44 }
+    : { top: 32, right: endLabels ? 86 : 18, bottom: 40, left: yScale === "symlog" ? 58 : 52 };
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -116,9 +157,16 @@ function DualChart({
     const xAt = (t: number) =>
       pad.left + linLerp(tMin, tMax, Math.min(tMax, Math.max(tMin, t))) * (box.w - pad.left - pad.right);
     const yAt = (v: number) => {
-      const u = logY
-        ? logLerp(yMin, yMax, Math.min(yMax, Math.max(yMin, v)))
-        : linLerp(yMin, yMax, Math.min(yMax, Math.max(yMin, v)));
+      const clamped = Math.min(yMax, Math.max(yMin, v));
+      let u: number;
+      if (yScale === "symlog") {
+        const s = (x: number) => Math.sign(x) * Math.log10(1 + Math.abs(x) / 0.1);
+        u = (s(clamped) - s(yMin)) / (s(yMax) - s(yMin));
+      } else if (logY || yScale === "log") {
+        u = logLerp(yMin, yMax, clamped);
+      } else {
+        u = linLerp(yMin, yMax, clamped);
+      }
       return pad.top + (1 - u) * (box.h - pad.top - pad.bottom);
     };
     const tAt = (x: number) => {
@@ -126,7 +174,7 @@ function DualChart({
       return tMin + Math.min(1, Math.max(0, u)) * (tMax - tMin);
     };
     return { tMin, tMax, xAt, yAt, tAt };
-  }, [series, box, pad.left, pad.right, pad.top, pad.bottom, yMin, yMax, logY]);
+  }, [series, box, pad.left, pad.right, pad.top, pad.bottom, yMin, yMax, logY, yScale]);
 
   const yTicks = useMemo(() => {
     if (yTickValues?.length) return yTickValues;
@@ -161,10 +209,9 @@ function DualChart({
 
   const last = series[series.length - 1] ?? null;
   const active = hover ?? (todayT ? nearestPoint(series, todayT) : last);
-  const btcD = geo ? pathOf(series, "btc", geo.xAt, geo.yAt) : "";
-  const spxD = geo ? pathOf(series, "spx", geo.xAt, geo.yAt) : "";
   const tipLeft =
     hover && geo ? Math.min(Math.max(geo.xAt(hover.t) + 10, pad.left + 4), box.w - pad.right - 168) : 0;
+  const ruleLabelY = pad.top + (box.h - pad.top - pad.bottom) * 0.36;
 
   return (
     <div className="min-w-0">
@@ -221,8 +268,8 @@ function DualChart({
                   x2={box.w - pad.right}
                   y1={geo.yAt(v)}
                   y2={geo.yAt(v)}
-                  stroke="var(--color-border)"
-                  strokeOpacity={0.55}
+                  stroke={v === 0 ? "var(--color-sand)" : "var(--color-border)"}
+                  strokeOpacity={v === 0 ? 0.7 : 0.55}
                 />
                 <text x={pad.left - 8} y={geo.yAt(v) + 3} textAnchor="end" className="chart-tick">
                   {formatY(v)}
@@ -277,14 +324,13 @@ function DualChart({
                   strokeWidth={1}
                   strokeDasharray="2 4"
                 />
-                <text
-                  x={geo.xAt(todayT) + 8}
-                  y={Math.max(pad.top + 22, geo.yAt(nearestPoint(series, todayT)?.btc ?? yMin) - 8)}
-                  className="chart-kicker"
-                  style={{ fill: "var(--color-floor)" }}
+                <VerticalRuleLabel
+                  x={geo.xAt(todayT)}
+                  y={ruleLabelY}
+                  fill="var(--color-floor)"
                 >
-                  today
-                </text>
+                  Today
+                </VerticalRuleLabel>
               </>
             ) : null}
 
@@ -296,40 +342,60 @@ function DualChart({
                   y1={pad.top}
                   y2={box.h - pad.bottom}
                   stroke={SPX_WHITE}
-                  strokeOpacity={0.35}
+                  strokeOpacity={0.75}
                   strokeDasharray="5 4"
                 />
-                <text
-                  x={Math.max(pad.left + 4, geo.xAt(markT) - 6)}
-                  y={pad.top + 14}
-                  textAnchor="end"
-                  className="chart-kicker"
-                  style={{ fill: SPX_WHITE }}
+                <VerticalRuleLabel
+                  x={geo.xAt(markT)}
+                  y={ruleLabelY}
+                  fill={SPX_WHITE}
                 >
-                  {markLabel}
-                </text>
+                  {markLabel ?? ""}
+                </VerticalRuleLabel>
               </>
             ) : null}
 
-            <path
-              d={spxD}
-              fill="none"
-              stroke={SPX_WHITE}
-              strokeWidth={focusId === "btc" ? 1.2 : 2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={focusId === "btc" ? 0.18 : 1}
-            />
-            <path
-              d={btcD}
-              fill="none"
-              stroke={BTC_ORANGE}
-              strokeWidth={focusId === "spx" ? 1.6 : 2.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={focusId === "spx" ? 0.18 : 1}
-              filter={`url(#${id}-glow)`}
-            />
+            {geo
+              ? (["spx", "btc"] as const).flatMap((key) =>
+                  (splitT != null ? (["past", "future"] as const) : (["all"] as const)).map((era) => {
+                    const d = pathOf(
+                      series,
+                      (pt) => {
+                        if (era === "past" && splitT != null && pt.t > splitT) return null;
+                        if (era === "future" && splitT != null && pt.t < splitT) return null;
+                        const v =
+                          era === "future" && key === "btc"
+                            ? powerLawOneYearReturn(pt.t)
+                            : era === "future" && key === "spx" && futureFlat
+                              ? SPX_LONG_RUN
+                              : pt[key];
+                        if (!Number.isFinite(v)) return null;
+                        if (logY && !(v > 0)) return null;
+                        return v;
+                      },
+                      geo.xAt,
+                      geo.yAt,
+                    );
+                    if (!d) return null;
+                    const dim = focusId != null && focusId !== key;
+                    const btc = key === "btc";
+                    return (
+                      <path
+                        key={`${key}-${era}`}
+                        d={d}
+                        fill="none"
+                        stroke={btc ? BTC_ORANGE : SPX_WHITE}
+                        strokeWidth={btc ? (dim ? 1.6 : 2.8) : dim ? 1.2 : 2.2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeDasharray={era === "future" ? "6 4" : undefined}
+                        opacity={dim ? 0.18 : 1}
+                        filter={btc ? `url(#${id}-glow)` : undefined}
+                      />
+                    );
+                  }),
+                )
+              : null}
 
             {marks?.map((mark) => {
               if (!geo || mark.t < geo.tMin || mark.t > geo.tMax) return null;
@@ -338,17 +404,15 @@ function DualChart({
               const x = geo.xAt(mark.t);
               const y = geo.yAt(pt.btc);
               const year = isoFromDay(mark.t).slice(0, 4);
-              const toRight = x < box.w - pad.right - 72;
-              const lift = Math.abs(mark.t - todayT) < 900 ? 32 : 12;
               return (
                 <g key={mark.id} opacity={focusId === "spx" ? 0.2 : 1}>
                   <line
                     x1={x}
                     x2={x}
-                    y1={y}
+                    y1={pad.top}
                     y2={box.h - pad.bottom}
                     stroke={mark.color}
-                    strokeOpacity={0.4}
+                    strokeOpacity={0.5}
                     strokeDasharray="3 4"
                   />
                   <circle
@@ -359,15 +423,9 @@ function DualChart({
                     stroke="#050505"
                     strokeWidth={1.2}
                   />
-                  <text
-                    x={toRight ? x + 8 : x - 8}
-                    y={y - lift}
-                    textAnchor={toRight ? "start" : "end"}
-                    className="chart-kicker"
-                    style={{ fill: mark.color }}
-                  >
-                    {`${mark.name} ${year}`}
-                  </text>
+                  <VerticalRuleLabel x={x} y={ruleLabelY} fill={mark.color} side="right">
+                    {`${mark.name} (${year})`}
+                  </VerticalRuleLabel>
                 </g>
               );
             })}
@@ -406,7 +464,9 @@ function DualChart({
                   strokeOpacity={0.35}
                 />
                 <circle cx={geo.xAt(hover.t)} cy={geo.yAt(hover.btc)} r={4} fill={BTC_ORANGE} />
-                <circle cx={geo.xAt(hover.t)} cy={geo.yAt(hover.spx)} r={3.4} fill={SPX_WHITE} />
+                {Number.isFinite(hover.spx) ? (
+                  <circle cx={geo.xAt(hover.t)} cy={geo.yAt(hover.spx)} r={3.4} fill={SPX_WHITE} />
+                ) : null}
               </>
             ) : null}
           </svg>
@@ -445,11 +505,14 @@ function DualChart({
           </p>
         ) : null}
       </div>
+      {splitT != null ? (
+        <p className="mt-2 text-xs text-muted-foreground">Solid is history. Dashed is projected.</p>
+      ) : null}
       {marks && marks.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {marks.map((mark) => (
             <p key={mark.id} className="font-mono text-[11px] tabular-nums" style={{ color: mark.color }}>
-              {mark.name} {isoFromDay(mark.t).slice(0, 4)}
+              {mark.name} ({isoFromDay(mark.t).slice(0, 4)})
               <span className="ml-1.5 text-muted-foreground">{formatCapTrillions(mark.capUsd)}</span>
             </p>
           ))}
@@ -488,6 +551,7 @@ export function StocksOrBitcoin() {
   const firstDollar = DOLLAR_SERIES[0];
   const crossIso = isoFromDay(CROSS_T);
   const startYear = firstDollar ? isoFromDay(firstDollar.t).slice(0, 4) : "2010";
+  const spxNow = latestSpxTrailing();
 
   return (
     <section
@@ -499,8 +563,10 @@ export function StocksOrBitcoin() {
       <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
         The power law is a diminishing-return curve: the same exponent on a larger age each year, so
         the implied one-year gain shrinks. Today that path still prices a{" "}
-        <span className="text-sand">{formatReturnPct(todayRet)}</span> year versus about 10% for the
-        S&P 500. Drag either chart. Tap a name to isolate the line.
+        <span className="text-sand">{formatReturnPct(todayRet)}</span> year. On the chart, both
+        lines are actual trailing one-year returns through today. After today bitcoin follows the
+        power law and the S&P follows 10%, both dashed.
+        Drag either chart. Tap a name to isolate the line.
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -510,7 +576,12 @@ export function StocksOrBitcoin() {
           hint="implied, today"
           color={BTC_ORANGE}
         />
-        <Stat label="S&P 500 long-run" value="~10%" hint="total return" color={SPX_WHITE} />
+        <Stat
+          label="S&P 500, 1 year"
+          value={spxNow ? formatReturnPct(spxNow.ret) : "\u2014"}
+          hint="actual trailing total return"
+          color={SPX_WHITE}
+        />
         <Stat
           label="Meets 10%"
           value={crossIso.slice(0, 4)}
@@ -528,20 +599,28 @@ export function StocksOrBitcoin() {
       <div className="mt-8 grid gap-10">
         <DualChart
           id="pl-return"
-          title="Power-law annualized return"
-          kicker={"Forward one-year return of P ~ t^5.69 versus the S&P 500 long-run ~10% total return. From Bitcoin's first traded prints in 2010 through 2070. Dots mark when power-law market cap matches CAD, gold, and global bonds."}
-          xLabel="annualized return (log)|year"
+          title="One-year return"
+          kicker="Solid lines are trailing one-year returns through today. Dashed bitcoin is the power-law forward year. Dashed S&P is a 10% assumption. Dots mark when power-law market cap matches CAD, gold, and global bonds."
+          xLabel="annualized return|year"
           series={RETURN_SERIES}
-          yMin={0.05}
-          yMax={20}
-          logY
-          formatY={(v) => `${Math.round(v * 100).toLocaleString("en-CA")}%`}
+          yMin={-0.9}
+          yMax={300}
+          logY={false}
+          yScale="symlog"
+          formatY={(v) => {
+            const pct = Math.round(v * 100);
+            const abs = Math.abs(pct);
+            const body = abs >= 10000 ? `${Math.round(pct / 1000)}k%` : `${pct.toLocaleString("en-CA")}%`;
+            return body;
+          }}
           formatValue={(pt, key) => formatReturnPct(pt[key])}
           yearTicks={[2010, 2015, 2020, 2025, 2030, 2040, 2050, 2060, 2070]}
           todayT={todayT}
+          splitT={todayT}
+          futureFlat
           markT={CROSS_T}
-          markLabel={`meets 10% ${crossIso.slice(0, 4)}`}
-          yTickValues={[0.05, 0.1, 0.5, 1, 5, 10, 20]}
+          markLabel={`Meets 10% ${crossIso.slice(0, 4)}`}
+          yTickValues={[-0.5, 0, 0.1, 1, 10, 100]}
           marks={CAP_MARKS}
         />
 
