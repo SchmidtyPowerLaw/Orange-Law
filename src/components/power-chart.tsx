@@ -530,18 +530,27 @@ function dockStill(
 }
 
 function heroStillRect(chartW: number, chartH: number, compact: boolean) {
+  // Large still on the right, so the path can draw in from the left.
   if (compact) {
-    const left = 8;
-    const top = 6;
-    const width = Math.min(chartW - left - 12, chartW * 0.56, 196);
-    const height = Math.min(chartH * 0.34, width / 1.32, 128);
-    return fitStill({ left, top, width, height }, chartW, chartH, 6);
+    const margin = 8;
+    const width = Math.min(chartW * 0.46, 220);
+    const height = Math.min(chartH * 0.58, width * 1.2, 240);
+    return fitStill(
+      { left: chartW - width - margin, top: 8, width, height },
+      chartW,
+      chartH,
+      margin,
+    );
   }
-  const left = 12;
-  const top = 10;
-  const width = Math.min(chartW * 0.55, 620);
-  const height = Math.min(chartH * 0.7, 400);
-  return fitStill({ left, top, width, height }, chartW, chartH, 10);
+  const margin = 14;
+  const width = Math.min(chartW * 0.4, 480);
+  const height = Math.min(chartH * 0.74, 500);
+  return fitStill(
+    { left: chartW - width - margin, top: 12, width, height },
+    chartW,
+    chartH,
+    margin,
+  );
 }
 
 function HistoryStill({
@@ -1381,7 +1390,7 @@ export function PowerChart({
           chipTaken,
           compactChart,
           geo.padBottom,
-          historyPlay && compactChart ? heroRect.top + heroRect.height + 8 : geo.padTop,
+          geo.padTop,
         )
       : [];
   for (const item of placedEvents) chipTaken.push(item.box);
