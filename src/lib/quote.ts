@@ -113,10 +113,20 @@ async function spotUsd(): Promise<number> {
   throw new Error("spot missing");
 }
 
-async function spotCad(): Promise<number> {
+async function spotCadNative(): Promise<number> {
   const cb = await coinbaseSpot("BTC-CAD");
   if (cb > 0) return cb;
   return krakenLast("XXBTZCAD");
+}
+
+/** Prefer native CAD quote only when it is consistent with USD * official FX (within 5%). Otherwise use conversion. */
+function reliableCad(usd: number, nativeCad: number, bocFx: number): number {
+  const expected = usd > 0 && bocFx > 0 ? usd * bocFx : 0;
+  if (nativeCad > 0 && expected > 0) {
+    const ratio = nativeCad / expected;
+    if (ratio >= 0.95 && ratio <= 1.05) return nativeCad;
+  }
+  return expected > 0 ? expected : nativeCad > 0 ? nativeCad : 0;
 }
 
 async function krakenPrevClose(pair: string): Promise<number | null> {
@@ -164,7 +174,7 @@ async function btcPrevUtcCloseUsd(): Promise<number | null> {
   return null;
 }
 
-async function btcPrevUtcCloseCad(): Promise<number | null> {
+async function btcPrevUtcCloseCadNative(): Promise<number | null> {
   const cb = await coinbasePrevClose("BTC-CAD");
   if (cb && cb > 0) return cb;
   return krakenPrevClose("XXBTZCAD");
@@ -309,11 +319,11 @@ async function completedGap(): Promise<LiveQuote["gap"]> {
 async function assembleQuote(): Promise<LiveQuote> {
   const [usd, cadNative, boc, xau, prevKline, prevCadNative, goldSession, fxOther, gap] = await Promise.all([
     spotUsd(),
-    spotCad(),
+    spotCadNative(),
     tryJson("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=5"),
     goldUsd(),
     btcPrevUtcCloseUsd(),
-    btcPrevUtcCloseCad(),
+    btcPrevUtcCloseCadNative(),
     yahooGoldSession(),
     liveOtherFx(),
     completedGap().catch(() => [] as LiveQuote["gap"]),
@@ -323,15 +333,12 @@ async function assembleQuote(): Promise<LiveQuote> {
       ?.observations ?? [];
   const bocFx = Number(bocObs[0]?.FXUSDCAD?.v);
   const bocFxPrev = Number(bocObs[1]?.FXUSDCAD?.v);
-  const fxFromCad = cadNative > 0 && usd > 0 ? cadNative / usd : 0;
-  const fx =
-    fxFromCad > 0
-      ? fxFromCad
-      : Number.isFinite(bocFx) && bocFx > 0
-        ? bocFx
-        : 1.38;
-  const cad = cadNative > 0 ? cadNative : usd * fx;
+  const reliableFx = Number.isFinite(bocFx) && bocFx > 0 ? bocFx : 1.38;
+  const cad = reliableCad(usd, cadNative, reliableFx);
+  const fx = usd > 0 && cad > 0 ? cad / usd : reliableFx;
   const prevFx = Number.isFinite(bocFxPrev) && bocFxPrev > 0 ? bocFxPrev : fx;
+  const prevUsd = prevKline && prevKline > 0 ? prevKline : 0;
+  const prevCadReliable = reliableCad(prevUsd, prevCadNative ?? 0, prevFx);
   // Apply today's COMEX move onto live spot so a stale gold-history.json
   // cannot dump several sessions into "today".
   let prevGold = goldUsdAt(daysSinceGenesis() - 1);
@@ -347,10 +354,10 @@ async function assembleQuote(): Promise<LiveQuote> {
       fxOther,
       gap,
       asOf: new Date().toISOString(),
-      source: "Coinbase/Kraken",
+      source: "Coinbase/Kraken+BoC",
     },
     prevKline,
-    prevCadNative,
+    prevCadReliable,
     prevFx,
     prevGold,
   );
@@ -360,7 +367,17 @@ export type LiveTick = { usd: number; cad: number; xau: number };
 
 export const getLiveTick = createServerFn({ method: "POST" }).handler(
   async (): Promise<LiveTick> => {
-    const [usd, cad, xau] = await Promise.all([spotUsd(), spotCad(), goldUsd()]);
+    const [usd, cadNative, boc, xau] = await Promise.all([
+      spotUsd(),
+      spotCadNative(),
+      tryJson("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1"),
+      goldUsd(),
+    ]);
+    const bocFx = Number(
+      (boc as { observations?: Array<{ FXUSDCAD?: { v?: string } }> } | null)?.observations?.[0]
+        ?.FXUSDCAD?.v,
+    );
+    const cad = reliableCad(usd, cadNative, Number.isFinite(bocFx) && bocFx > 0 ? bocFx : 1.38);
     return { usd, cad, xau };
   },
 );
