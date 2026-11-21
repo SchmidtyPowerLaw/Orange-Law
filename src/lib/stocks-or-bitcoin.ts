@@ -120,10 +120,13 @@ export function latestSpxTrailing(): { t: number; ret: number } | null {
  * Through today both series are trailing one-year total returns.
  * After today bitcoin is the power-law forward year and the S&P is 10%.
  */
-export function diminishingReturnSeries(presentT?: number): VsPoint[] {
-  const todayT = presentT ?? HISTORY[HISTORY.length - 1]?.t ?? tFromUtc(Date.now());
+export function diminishingReturnSeries(
+  presentT?: number,
+  btcSource?: { t: number; usd: number }[],
+): VsPoint[] {
+  const btc = (btcSource ?? HISTORY).filter((row) => row.usd > 0);
+  const todayT = presentT ?? btc[btc.length - 1]?.t ?? tFromUtc(Date.now());
   const spx = assetSeries("spx");
-  const btc = HISTORY.filter((row) => row.usd > 0);
   const spxLast = spx[spx.length - 1]?.t ?? todayT;
   const btcLast = btc[btc.length - 1]?.t ?? todayT;
   const start = T_MODEL_START;
@@ -162,37 +165,37 @@ export function diminishingReturnSeries(presentT?: number): VsPoint[] {
 }
 
 /** Growth of $1 in BTC vs S&P 500 total return from first overlapping close. */
-export function dollarGrowthSeries(): VsPoint[] {
+export function dollarGrowthSeries(btcSource?: { t: number; usd: number }[]): VsPoint[] {
   const spx = assetSeries("spx");
-  const btc = HISTORY.filter((row) => row.usd > 0);
+  const btc = (btcSource ?? HISTORY).filter((row) => row.usd > 0);
   if (spx.length === 0 || btc.length === 0) return [];
   const t0 = Math.max(spx[0]!.t, btc[0]!.t);
   const btc0 = lookup(btc, t0);
   const spx0 = lookup(spx, t0);
   if (!btc0 || !spx0) return [];
+  const spxLast = spx[spx.length - 1]?.t ?? t0;
   const out: VsPoint[] = [];
   for (const row of btc) {
     if (row.t < t0) continue;
     if (out.length > 0 && row.t - out[out.length - 1]!.t < 10) continue;
-    const s = lookup(spx, row.t);
-    if (!s) continue;
+    const s = row.t <= spxLast ? lookup(spx, row.t) : null;
     const iso = isoFromDay(row.t);
     out.push({
       t: row.t,
       year: Number(iso.slice(0, 4)) + (Number(iso.slice(5, 7)) - 1) / 12,
       btc: row.usd / btc0,
-      spx: s / spx0,
+      spx: s ? s / spx0 : Number.NaN,
     });
   }
   const lastBtc = btc[btc.length - 1]!;
-  const lastSpx = lookup(spx, lastBtc.t);
-  if (lastSpx && (out.length === 0 || out[out.length - 1]!.t !== lastBtc.t)) {
+  if (out.length === 0 || out[out.length - 1]!.t !== lastBtc.t) {
+    const s = lastBtc.t <= spxLast ? lookup(spx, lastBtc.t) : null;
     const iso = isoFromDay(lastBtc.t);
     out.push({
       t: lastBtc.t,
       year: Number(iso.slice(0, 4)) + (Number(iso.slice(5, 7)) - 1) / 12,
       btc: lastBtc.usd / btc0,
-      spx: lastSpx / spx0,
+      spx: s ? s / spx0 : Number.NaN,
     });
   }
   return out;
