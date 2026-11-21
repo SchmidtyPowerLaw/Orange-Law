@@ -549,7 +549,7 @@ function Home() {
           />
         ) : null}
 
-        <CheapBitcoin usd={spotUsd} />
+        <CheapBitcoin usd={spotUsd} rows={rows} />
 
         <NatureLaws />
 
