@@ -101,13 +101,13 @@ function trailingReturn(series: { t: number; usd: number }[], t: number): number
 }
 
 /** Trailing one-year S&P 500 total return at day t, or null if a year of history is missing. */
-export function spxTrailingReturn(t: number): number | null {
-  return trailingReturn(assetSeries("spx"), t);
+export function spxTrailingReturn(t: number, spx: { t: number; usd: number }[] = assetSeries("spx")): number | null {
+  return trailingReturn(spx, t);
 }
 
 /** Latest S&P print that has a full prior year, and that trailing one-year total return. */
-export function latestSpxTrailing(): { t: number; ret: number } | null {
-  const spx = assetSeries("spx");
+export function latestSpxTrailing(spxSource?: { t: number; usd: number }[]): { t: number; ret: number } | null {
+  const spx = spxSource && spxSource.length > 0 ? spxSource : assetSeries("spx");
   const last = spx[spx.length - 1];
   if (!last) return null;
   const ret = trailingReturn(spx, last.t);
@@ -123,10 +123,11 @@ export function latestSpxTrailing(): { t: number; ret: number } | null {
 export function diminishingReturnSeries(
   presentT?: number,
   btcSource?: { t: number; usd: number }[],
+  spxSource?: { t: number; usd: number }[],
 ): VsPoint[] {
   const btc = (btcSource ?? HISTORY).filter((row) => row.usd > 0);
   const todayT = presentT ?? btc[btc.length - 1]?.t ?? tFromUtc(Date.now());
-  const spx = assetSeries("spx");
+  const spx = spxSource && spxSource.length > 0 ? spxSource : assetSeries("spx");
   const spxLast = spx[spx.length - 1]?.t ?? todayT;
   const btcLast = btc[btc.length - 1]?.t ?? todayT;
   const start = T_MODEL_START;
@@ -165,8 +166,11 @@ export function diminishingReturnSeries(
 }
 
 /** Growth of $1 in BTC vs S&P 500 total return from first overlapping close. */
-export function dollarGrowthSeries(btcSource?: { t: number; usd: number }[]): VsPoint[] {
-  const spx = assetSeries("spx");
+export function dollarGrowthSeries(
+  btcSource?: { t: number; usd: number }[],
+  spxSource?: { t: number; usd: number }[],
+): VsPoint[] {
+  const spx = spxSource && spxSource.length > 0 ? spxSource : assetSeries("spx");
   const btc = (btcSource ?? HISTORY).filter((row) => row.usd > 0);
   if (spx.length === 0 || btc.length === 0) return [];
   const t0 = Math.max(spx[0]!.t, btc[0]!.t);
