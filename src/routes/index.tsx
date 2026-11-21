@@ -553,7 +553,7 @@ function Home() {
 
         <TrillionRace />
 
-        <StocksOrBitcoin />
+        <StocksOrBitcoin rows={rows} />
 
         <ModelNotes />
       </main>
