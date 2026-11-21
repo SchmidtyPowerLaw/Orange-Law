@@ -23,8 +23,6 @@ import { cn } from "@/lib/utils";
 
 type SeriesId = "btc" | "spx";
 
-const RETURN_SERIES = diminishingReturnSeries();
-const DOLLAR_SERIES = dollarGrowthSeries();
 const CROSS_T = crossoverT();
 
 function logLerp(a: number, b: number, x: number) {
@@ -649,11 +647,14 @@ function Stat({
   );
 }
 
-export function StocksOrBitcoin() {
-  const todayT = HISTORY[HISTORY.length - 1]?.t ?? 0;
+export function StocksOrBitcoin({ rows }: { rows?: { t: number; usd: number }[] }) {
+  const btc = rows && rows.length > 0 ? rows : HISTORY;
+  const todayT = btc[btc.length - 1]?.t ?? 0;
+  const returnSeries = useMemo(() => diminishingReturnSeries(todayT, btc), [btc, todayT]);
+  const dollarSeries = useMemo(() => dollarGrowthSeries(btc), [btc]);
   const todayRet = powerLawOneYearReturn(todayT);
-  const lastDollar = DOLLAR_SERIES[DOLLAR_SERIES.length - 1];
-  const firstDollar = DOLLAR_SERIES[0];
+  const lastDollar = dollarSeries[dollarSeries.length - 1];
+  const firstDollar = dollarSeries[0];
   const crossIso = isoFromDay(CROSS_T);
   const startYear = firstDollar ? isoFromDay(firstDollar.t).slice(0, 4) : "2010";
   const spxNow = latestSpxTrailing();
@@ -713,7 +714,7 @@ export function StocksOrBitcoin() {
           title="One-year return"
           kicker="Solid lines are trailing one-year returns through today. The faint orange line is the smoothed power-law one-year return, also through today. Dashed bitcoin continues that power law. Dashed S&P is a 10% assumption."
           xLabel="annualized return|year"
-          series={RETURN_SERIES}
+          series={returnSeries}
           yMin={-0.9}
           yMax={300}
           logY={false}
@@ -740,7 +741,7 @@ export function StocksOrBitcoin() {
           title="Growth of $1 (log)"
           kicker={`$1 in bitcoin versus $1 in the S&P 500 total-return index from July 2010. Dividends stay in.`}
           xLabel="multiple of starting $1 (log)|year"
-          series={DOLLAR_SERIES}
+          series={dollarSeries}
           yMin={0.5}
           yMax={Math.max(2_000_000, lastDollar ? lastDollar.btc * 1.4 : 2_000_000)}
           logY
