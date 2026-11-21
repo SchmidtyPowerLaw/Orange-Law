@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Segmented } from "@/components/segmented";
 import { formatDay } from "@/lib/format";
+import { HISTORY, type HistoryRow } from "@/lib/history";
 import {
   WMA_LEGEND,
   barColor,
   cheapHistogram,
+  wmaSeries,
   type CheapWindow,
 } from "@/lib/wma200";
 import { cn } from "@/lib/utils";
@@ -18,10 +20,12 @@ function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-export function CheapBitcoin({ usd }: { usd: number }) {
+export function CheapBitcoin({ usd, rows }: { usd: number; rows?: HistoryRow[] }) {
   const [span, setSpan] = useState<CheapWindow>("all");
-  const hist = useMemo(() => cheapHistogram(span, usd), [span, usd]);
-  const allTime = useMemo(() => cheapHistogram("all", usd), [usd]);
+  const series = rows && rows.length > 0 ? rows : HISTORY;
+  const days = useMemo(() => wmaSeries(series), [series]);
+  const hist = useMemo(() => cheapHistogram(span, usd, days), [span, usd, days]);
+  const allTime = useMemo(() => cheapHistogram("all", usd, days), [usd, days]);
   if (!hist || !allTime) return null;
 
   const maxCount = Math.max(...hist.bins.map((b) => b.count), 1);
