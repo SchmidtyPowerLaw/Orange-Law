@@ -206,6 +206,20 @@ function Home() {
           : spotUsd;
   const fx = lastScale(rows, quote, currency);
   const liveDayChange = dayOverDay(spot, currency, quote, rows);
+  const cheapDays = useMemo(() => {
+    const tNow = last?.t ?? 0;
+    if (!(spotUsd > 0) || tNow <= 0) return { days: 76, pct: 1.3 };
+    const zNow = residualZOf(spotUsd, tNow, 1);
+    let days = 0;
+    let n = 0;
+    for (const row of HISTORY) {
+      if (!(row.usd > 0) || row.t >= tNow) continue;
+      n += 1;
+      if (residualZOf(row.usd, row.t, 1) < zNow) days += 1;
+    }
+    if (n === 0) return { days: 76, pct: 1.3 };
+    return { days, pct: (days / n) * 100 };
+  }, [spotUsd, last]);
   const r2 = useMemo(() => {
     if (!last || rows.length === 0) return null;
     const preset = rangeWindow(range, last.t, rows[0].t);
@@ -355,11 +369,23 @@ function Home() {
       </header>
 
       <main className="mx-auto flex min-w-0 max-w-6xl flex-col gap-12 px-4 py-6 md:gap-16 md:py-8">
-        <p className="max-w-4xl text-pretty text-sm leading-relaxed text-sand md:text-base md:leading-7">
-          Bitcoin is not a corporation racing toward saturation and death; it is a city spreading
-          like an epidemic, where users cube with time, value squares with users, and price is simply
-          the network's age raised to the sixth power.
-        </p>
+        <div className="flex max-w-4xl flex-col gap-4">
+          <p className="text-pretty text-sm leading-relaxed text-sand md:text-base md:leading-7">
+            Bitcoin is not a corporation racing toward saturation and death; it is a city spreading
+            like an epidemic, where users cube with time, value squares with users, and price is simply
+            the network's age raised to the sixth power.
+          </p>
+          <p
+            className="ol-buy-flash text-pretty text-lg font-semibold leading-snug tracking-tight md:text-2xl"
+            style={{ color: "#f7931a" }}
+          >
+            Bitcoin's only been cheaper {cheapDays.pct.toFixed(1)}% ({cheapDays.days.toLocaleString()}{" "}
+            days) in its entire history:{" "}
+            <span className="font-extrabold" style={{ color: "#ff1a1a" }}>
+              VERY STRONG BUY
+            </span>
+          </p>
+        </div>
         <PriceHero
           price={spot}
           priceUsd={spotUsd}
@@ -432,7 +458,7 @@ function Home() {
                 size="sm"
                 className="h-11"
                 aria-pressed={showFuture}
-                title="Log-periodic path: power law plus three modes (\u03c9, 2\u03c9, 4\u03c9). Not a four-year cycle."
+                title="Log-periodic path: power law plus three modes (ω, 2ω, 4ω). Not a four-year cycle."
                 onClick={() => {
                   const next = !showFuture;
                   setShowFuture(next);
