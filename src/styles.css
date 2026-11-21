@@ -446,3 +446,27 @@
 .legal-copy a:hover {
   color: var(--color-sand);
 }
+
+@keyframes ol-buy-flash {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    opacity: 0.45;
+    filter: brightness(1.45);
+    text-shadow: 0 0 18px rgba(247, 147, 26, 0.85);
+  }
+}
+
+.ol-buy-flash {
+  animation: ol-buy-flash 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ol-buy-flash {
+    animation: none;
+  }
+}
