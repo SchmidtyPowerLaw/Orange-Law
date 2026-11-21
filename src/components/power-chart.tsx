@@ -20,7 +20,7 @@ import {
   rangeWindow,
   scaleAt,
 } from "@/lib/history";
-import { formatBtc, formatDay, formatPrice, formatPriceCompact, formatReturn, type Currency, type FiatCurrency } from "@/lib/format";
+import { formatBtc, formatDay, formatPct, formatPrice, formatPriceCompact, formatReturn, type Currency, type FiatCurrency } from "@/lib/format";
 import { buyPopDelayMs, type PlotBuy } from "@/lib/purchases";
 import { eventSitsAbove, eventStroke, type PlotEvent } from "@/lib/events";
 import { cn } from "@/lib/utils";
@@ -1328,6 +1328,25 @@ export function PowerChart({
   const a = selA;
   const b = selB;
   const projectedSpan = Boolean(a?.projected || b?.projected);
+  const spanChange = (() => {
+    if (!geo || !a || !b) return null;
+    const earlier = a.t <= b.t ? a : b;
+    const later = a.t <= b.t ? b : a;
+    const start = priceOf(earlier, currency, liveXau, liveFx);
+    const end = priceOf(later, currency, liveXau, liveFx);
+    if (!(start > 0) || !Number.isFinite(end)) return null;
+    const x1 = geo.xAt(a.t);
+    const x2 = geo.xAt(b.t);
+    const visL = Math.max(PAD.left, Math.min(x1, x2));
+    const visR = Math.min(box.w - PAD.right, Math.max(x1, x2));
+    if (visR - visL < 4) return null;
+    return {
+      x: (visL + visR) / 2,
+      y: geo.padTop + (box.h - geo.padTop - geo.padBottom) / 2,
+      ret: end / start - 1,
+      narrow: visR - visL < 92,
+    };
+  })();
   const placedBuys =
     !historyPlay && showBuys && geo
       ? placeBuys(
@@ -1946,6 +1965,24 @@ export function PowerChart({
             <tspan x={4} y={11}>POWER LAW</tspan>
             <tspan x={4} y={22}>FLOOR</tspan>
           </text>
+          {spanChange ? (
+            <text
+              x={spanChange.x}
+              y={spanChange.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={spanChange.ret >= 0 ? "var(--color-up)" : "var(--color-down)"}
+              stroke="var(--color-background)"
+              strokeWidth={5}
+              paintOrder="stroke"
+              pointerEvents="none"
+              fontWeight={700}
+              fontSize={spanChange.narrow ? 12 : 18}
+              className="tabular"
+            >
+              {formatPct(spanChange.ret, Math.abs(spanChange.ret) >= 10 ? 0 : 1)}
+            </text>
+          ) : null}
         </svg>
       ) : null}
       {geo && a && aChip ? (
