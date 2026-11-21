@@ -1,6 +1,7 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isoFromDay } from "@/lib/powerlaw";
 import { HISTORY } from "@/lib/history";
+import { getLiveSpx, mergeLiveSpx, type SpxPoint } from "@/lib/spx-live";
 import {
   BTC_ORANGE,
   CAP_MARKS,
@@ -647,17 +648,47 @@ function Stat({
   );
 }
 
-export function StocksOrBitcoin({ rows }: { rows?: { t: number; usd: number }[] }) {
+export function StocksOrBitcoin({
+  rows,
+  spx,
+}: {
+  rows?: { t: number; usd: number }[];
+  spx?: SpxPoint[] | null;
+}) {
   const btc = rows && rows.length > 0 ? rows : HISTORY;
   const todayT = btc[btc.length - 1]?.t ?? 0;
-  const returnSeries = useMemo(() => diminishingReturnSeries(todayT, btc), [btc, todayT]);
-  const dollarSeries = useMemo(() => dollarGrowthSeries(btc), [btc]);
+  const [spxExtra, setSpxExtra] = useState<SpxPoint[] | null>(spx ?? null);
+  useEffect(() => {
+    setSpxExtra(spx ?? null);
+  }, [spx]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const next = await getLiveSpx();
+        if (alive && next.length > 0) setSpxExtra(next);
+      } catch {
+        /* keep the bundled S&P series */
+      }
+    };
+    const id = window.setInterval(() => void load(), 15 * 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
+  const spxSeries = useMemo(() => mergeLiveSpx(spxExtra), [spxExtra]);
+  const returnSeries = useMemo(
+    () => diminishingReturnSeries(todayT, btc, spxSeries),
+    [btc, todayT, spxSeries],
+  );
+  const dollarSeries = useMemo(() => dollarGrowthSeries(btc, spxSeries), [btc, spxSeries]);
   const todayRet = powerLawOneYearReturn(todayT);
   const lastDollar = dollarSeries[dollarSeries.length - 1];
   const firstDollar = dollarSeries[0];
   const crossIso = isoFromDay(CROSS_T);
   const startYear = firstDollar ? isoFromDay(firstDollar.t).slice(0, 4) : "2010";
-  const spxNow = latestSpxTrailing();
+  const spxNow = latestSpxTrailing(spxSeries);
 
   return (
     <section
