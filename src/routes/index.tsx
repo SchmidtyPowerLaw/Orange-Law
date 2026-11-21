@@ -39,6 +39,7 @@ import {
   spanFromRow,
 } from "@/lib/history";
 import { getLiveQuote } from "@/lib/quote";
+import { getLiveSpx } from "@/lib/spx-live";
 import { guessDisplayCurrency } from "@/lib/geo-currency";
 import { useLiveTick, withLiveTick } from "@/lib/live-btc";
 import { useSettings } from "@/lib/settings";
@@ -54,11 +55,12 @@ import { plotBuyExtremes, plotEvents, plotFutureEvents, plotHistoryEvents } from
 
 export const Route = createFileRoute("/")({
   loader: async () => {
-    const [quote, geoCurrency] = await Promise.all([
+    const [quote, geoCurrency, spx] = await Promise.all([
       getLiveQuote().catch(() => null),
       guessDisplayCurrency().catch(() => null),
+      getLiveSpx().catch(() => [] as { t: number; usd: number }[]),
     ]);
-    return { quote, geoCurrency };
+    return { quote, geoCurrency, spx };
   },
   component: Home,
 });
@@ -553,7 +555,7 @@ function Home() {
 
         <TrillionRace />
 
-        <StocksOrBitcoin rows={rows} />
+        <StocksOrBitcoin rows={rows} spx={loaded.spx} />
 
         <ModelNotes />
       </main>
